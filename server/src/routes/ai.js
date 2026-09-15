@@ -46,12 +46,13 @@ router.post('/chat', asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(ticketId);
   if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
+  const io = req.app.get('io');
+
   // 1) Retrieve relevant chunks from knowledge base
   const chunks = await vectorSearch(query, 3);
 
   if (!chunks.length) {
     const msg = await Message.create({ ticketId, senderId: null, senderType: 'ai', text: 'Escalating to human agent — no relevant knowledge found.' });
-    io = req.app.get('io');
     if (io) io.to(ticketId.toString()).emit('new-message', msg);
     return res.json({ answer: 'Escalating to human agent — no relevant knowledge found.', chunkCount: 0 });
   }
@@ -70,8 +71,6 @@ Question: ${query}`;
 
   // 3) Store AI response as message
   const msg = await Message.create({ ticketId, senderId: null, senderType: 'ai', text: answer });
-
-  const io = req.app.get('io');
   if (io) io.to(ticketId.toString()).emit('new-message', msg);
 
   res.json({ answer, chunkCount: chunks.length });

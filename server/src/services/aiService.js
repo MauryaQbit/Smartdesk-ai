@@ -3,9 +3,10 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const KnowledgeDoc = require('../models/KnowledgeDoc');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const CHAT_MODEL = 'gemini-1.5-flash';
+const CHAT_MODEL = 'gemini-2.5-flash';
 const CHUNK_SIZE = 500;
 const CHUNK_OVERLAP = 50;
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 
 function chunkText(text) {
   const chunks = [];
@@ -36,9 +37,14 @@ async function generateText(prompt) {
 }
 
 async function getEmbedding(text) {
-  const model = await genAI.getEmbeddingModel({ model: 'text-embedding-004' });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
+  const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'nomic-embed-text', input: text })
+  });
+  if (!res.ok) throw new Error(`Ollama embedding failed: ${res.status}`);
+  const data = await res.json();
+  return data.embedding;
 }
 
 async function processAndStoreKB(title, content, source, uploadedBy) {
