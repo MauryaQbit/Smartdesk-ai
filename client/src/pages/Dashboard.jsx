@@ -4,13 +4,17 @@ import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, uploadKB, getKB, triageTicket } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ title: '', description: '', category: 'general' });
+  const [kbTitle, setKbTitle] = useState('');
+  const [kbFile, setKbFile] = useState(null);
+  const [kbDocs, setKbDocs] = useState([]);
+  const [triageResults, setTriageResults] = useState({});
 
   const load = async (p = 1) => {
     const params = new URLSearchParams({ page: p, limit: 10 });
@@ -28,6 +32,30 @@ export default function Dashboard() {
     e.preventDefault();
     await api.post('/tickets', form);
     setForm({ title: '', description: '', category: 'general' });
+    load(1);
+  };
+
+  const handleKBUpload = async (e) => {
+    e.preventDefault();
+    if (!kbFile) return alert('Select a file first');
+    const fd = new FormData();
+    fd.append('file', kbFile);
+    fd.append('title', kbTitle || kbFile.name);
+    const result = await uploadKB(fd);
+    alert(`Uploaded: ${result.title} with ${result.chunkCount} chunks`);
+    setKbTitle('');
+    setKbFile(null);
+    loadKB();
+  };
+
+  const loadKB = async () => {
+    const { data } = await getKB();
+    setKbDocs(data.data);
+  };
+
+  const handleTriage = async (ticketId) => {
+    const result = await triageTicket(ticketId);
+    setTriageResults((prev) => ({ ...prev, [ticketId]: result }));
     load(1);
   };
 
@@ -67,8 +95,15 @@ export default function Dashboard() {
           </div>
           {tickets.map((t) => (
             <Link key={t._id} to={`/tickets/${t._id}`} className="ticket">
-              <b>{t.title}</b>
-              <span>{t.status} • {t.priority} • {t.category}</span>
+              <div>
+                <b>{t.title}</b>
+                <span> {t.status} • {t.priority} • {t.category}</span>
+                {triageResults[t._id] && (
+                  <small style={{ display: 'block', color: '#2563eb' }}>
+                    AI: {triageResults[t._id].priority} • {triageResults[t._id].category} • {triageResults[t._id].summary}
+                  </small>
+                )}
+              </div>
             </Link>
           ))}
           <div className="row">
@@ -76,8 +111,38 @@ export default function Dashboard() {
             <span>{page}/{totalPages}</span>
             <button disabled={page >= totalPages} onClick={() => load(page + 1)}>Next</button>
           </div>
+          {user?.role === 'admin' && (
+            <button onClick={() => tickets.filter((t) => t.status === 'open').forEach((t) => handleTriage(t._id))}>
+              AI Triage all open tickets
+            </button>
+          )}
         </div>
       </div>
+
+      {['admin', 'agent'].includes(user?.role) && (
+        <div className="grid" style={{ marginTop: 16 }}>
+          <div className="card">
+            <h3>Knowledge Base Upload</h3>
+            <form onSubmit={handleKBUpload}>
+              <input placeholder="Document title" value={kbTitle} onChange={(e) => setKbTitle(e.target.value)} />
+              <input type="file" accept=".txt,.md,.json,.csv" onChange={(e) => setKbFile(e.target.files[0])} />
+              <button type="submit">Upload to KB</button>
+            </form>
+          </div>
+          <div className="card">
+            <h3>Knowledge Base Docs ({kbDocs.length})</h3>
+            {kbDocs.map((d) => (
+              <div key={d._id} className="ticket">
+                <div>
+                  <b>{d.title}</b>
+                  <span> {d.chunkCount} chunks • {d.source}</span>
+                </div>
+              </div>
+            ))}
+            {kbDocs.length === 0 && <p><small>No docs uploaded yet</small></p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

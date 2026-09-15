@@ -8,16 +8,22 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function TicketDetail() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, chatAI, draftReply } = useAuth();
   const [ticket, setTicket] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const [chatQuery, setChatQuery] = useState('');
+  const [chatResult, setChatResult] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [triageInfo, setTriageInfo] = useState(null);
   const socketRef = useRef(null);
 
   const load = async () => {
     const { data } = await api.get(`/tickets/${id}`);
     setTicket(data.ticket);
     setMessages(data.messages);
+    const p = data.ticket.priority ? { priority: data.ticket.priority, category: data.ticket.category, summary: data.ticket.summaryAI } : null;
+    setTriageInfo(p);
   };
 
   useEffect(() => {
@@ -35,10 +41,8 @@ export default function TicketDetail() {
   const send = async (e) => {
     e.preventDefault();
     if (!text.trim()) return;
-    // Realtime first, REST as fallback persistence is handled by socket server.
     socketRef.current?.emit('send-message', { ticketId: id, text });
     setText('');
-    // Fallback poll after 800ms to sync if socket missed
     setTimeout(async () => {
       try {
         const { data } = await api.get(`/tickets/${id}`);
@@ -46,6 +50,28 @@ export default function TicketDetail() {
         setTicket(data.ticket);
       } catch {}
     }, 800);
+  };
+
+  const handleChatAI = async (e) => {
+    e.preventDefault();
+    if (!chatQuery.trim()) return;
+    const result = await chatAI(id, chatQuery.trim());
+    setChatResult(result);
+    setChatQuery('');
+    const { data } = await api.get(`/tickets/${id}`);
+    setMessages(data.messages);
+  };
+
+  const handleDraft = async () => {
+    const result = await draftReply(id);
+    setDraft(result.draftReply || '');
+  };
+
+  const handleTriage = async () => {
+    await api.post('/ai/triage', { ticketId: id });
+    const { data } = await api.get(`/tickets/${id}`);
+    const p = data.ticket.priority ? { priority: data.ticket.priority, category: data.ticket.category, summary: data.ticket.summaryAI } : null;
+    setTriageInfo(p);
   };
 
   const assign = async () => {
@@ -67,9 +93,11 @@ export default function TicketDetail() {
       <div className="card">
         <h2>{ticket.title}</h2>
         <p>{ticket.description}</p>
-        <p><small>{ticket.status} • {ticket.priority} • {ticket.category} • SLA: {new Date(ticket.slaDeadline).toLocaleString()}</small></p>
+        <p><small>{ticket.status} • {triageInfo?.priority || ticket.priority} • {triageInfo?.category || ticket.category} • SLA: {new Date(ticket.slaDeadline).toLocaleString()}</small></p>
+        {triageInfo && <p><small style={{ color: '#2563eb' }}>AI triage: {triageInfo.priority} | {triageInfo.category} | {triageInfo.summary}</small></p>}
         {isStaff && (
           <div className="row">
+            <button onClick={handleTriage}>AI Triage</button>
             <button onClick={assign}>Assign to me</button>
             <button onClick={() => setStatus('resolved')}>Resolve</button>
             <button onClick={() => setStatus('closed')}>Close</button>
@@ -78,9 +106,29 @@ export default function TicketDetail() {
         {!isStaff && ticket.status === 'resolved' && <button onClick={() => setStatus('closed')}>Close ticket</button>}
       </div>
 
+      {isStaff && (
+        <div className="card">
+          <h3>AI Agent Assist</h3>
+          <div className="row">
+            <button onClick={handleDraft}>Summarize thread & draft reply</button>
+          </div>
+          {draft && (
+            <div className="msg" style={{ marginTop: 8 }}>
+              <b>Draft reply:</b> {draft}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card">
         <h3>Live chat</h3>
         <div className="chat">
+          {chatResult && (
+            <div className="msg ai">
+              <span><b>RAG answer:</b> {chatResult.answer}</span>
+              <small>AI • {chatResult.chunkCount} chunks used</small>
+            </div>
+          )}
           {messages.map((m) => (
             <div key={m._id} className={`msg ${m.senderType}`}>
               <span>{m.text}</span>
@@ -91,6 +139,14 @@ export default function TicketDetail() {
         <form onSubmit={send} className="row">
           <input placeholder="Type message..." value={text} onChange={(e) => setText(e.target.value)} />
           <button type="submit">Send</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3>RAG Chat (Knowledge Base)</h3>
+        <form onSubmit={handleChatAI} className="row">
+          <input placeholder="Ask a question about this ticket..." value={chatQuery} onChange={(e) => setChatQuery(e.target.value)} />
+          <button type="submit">Ask AI</button>
         </form>
       </div>
     </div>

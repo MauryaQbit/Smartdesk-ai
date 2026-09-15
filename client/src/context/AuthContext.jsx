@@ -23,12 +23,39 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const uploadKB = async (formData) => {
+    const { data } = await api.post('/kb/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return data;
+  };
+
+  const getKB = async () => {
+    const { data } = await api.get('/kb');
+    return data;
+  };
+
+  const triageTicket = async (ticketId) => {
+    const { data } = await api.post('/ai/triage', { ticketId });
+    return data;
+  };
+
+  const chatAI = async (ticketId, query) => {
+    const { data } = await api.post('/ai/chat', { ticketId, query });
+    return data;
+  };
+
+  const draftReply = async (ticketId) => {
+    const { data } = await api.post('/ai/draft-reply', { ticketId });
+    return data;
+  };
+
   const logout = async () => {
     await api.post('/auth/logout');
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, register, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, register, logout, uploadKB, getKB, triageTicket, chatAI, draftReply }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
