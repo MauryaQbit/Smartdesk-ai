@@ -1,8 +1,9 @@
+require('dotenv').config();
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const KnowledgeDoc = require('../models/KnowledgeDoc');
 
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const CHAT_MODEL = 'llama3.1:8b';
-const EMBEDDING_MODEL = 'nomic-embed-text';
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const CHAT_MODEL = 'gemini-1.5-flash';
 const CHUNK_SIZE = 500;
 const CHUNK_OVERLAP = 50;
 
@@ -28,34 +29,16 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-async function ollamaGenerate(prompt, model = CHAT_MODEL) {
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt, stream: false, options: { temperature: 0.3 } })
-  });
-  if (!res.ok) throw new Error(`Ollama generate failed: ${res.status}`);
-  const data = await res.json();
-  return data.response;
-}
-
-async function ollamaEmbedding(text) {
-  const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: EMBEDDING_MODEL, input: text })
-  });
-  if (!res.ok) throw new Error(`Ollama embedding failed: ${res.status}`);
-  const data = await res.json();
-  return data.embedding;
-}
-
 async function generateText(prompt) {
-  return ollamaGenerate(prompt);
+  const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
+  const result = await model.generateContent(prompt);
+  return result.response.text();
 }
 
 async function getEmbedding(text) {
-  return ollamaEmbedding(text);
+  const model = await genAI.getEmbeddingModel({ model: 'text-embedding-004' });
+  const result = await model.embedContent(text);
+  return result.embedding.values;
 }
 
 async function processAndStoreKB(title, content, source, uploadedBy) {

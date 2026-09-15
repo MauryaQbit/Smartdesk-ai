@@ -6,8 +6,8 @@ Full-stack MERN project: JWT + RBAC auth, Tickets + pagination/search, live Sock
 Frontend: React + Vite + Tailwind + React-Router + Socket.io-client + Axios
 Backend: Node + Express + Mongoose + Socket.io
 DB: MongoDB (local or Atlas)
-AI: Ollama (llama3.1:8b for text, nomic-embed-text for embeddings) — runs locally
-Vector Search: Cosine similarity in JS (no Atlas vector index required)
+AI: Gemini 1.5 Flash (`gemini-1.5-flash` for text, `text-embedding-004` for embeddings)
+Fallback: Ollama for embeddings if needed
 Deploy: Render Backend + Vercel Frontend
 
 ## Prerequisites
