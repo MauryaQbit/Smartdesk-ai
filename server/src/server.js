@@ -11,6 +11,8 @@ const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/error');
 const authRoutes = require('./routes/auth');
 const ticketRoutes = require('./routes/tickets');
+const kbRoutes = require('./routes/kb');
+const aiRoutes = require('./routes/ai');
 const initSocket = require('./socket');
 
 const app = express();
@@ -30,6 +32,8 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'smartdesk-ai', time: new Date() }));
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/kb', kbRoutes);
+app.use('/api/ai', aiRoutes);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
