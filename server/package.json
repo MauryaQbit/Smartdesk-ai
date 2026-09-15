@@ -1,7 +1,7 @@
 {
   "name": "smartdesk-ai-server",
   "version": "0.1.0",
-  "description": "SmartDesk AI - Helpdesk backend (Month 1: Auth + Tickets + Realtime)",
+  "description": "SmartDesk AI - Helpdesk backend (Ollama + RAG + Auto-Triage)",
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
@@ -9,7 +9,6 @@
     "start": "node src/server.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -18,7 +17,6 @@
     "express-rate-limit": "^7.2.0",
     "express-validator": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mime-types": "^3.0.2",
     "mongoose": "^8.4.0",
     "morgan": "^1.10.0",
     "multer": "^2.4.0",
