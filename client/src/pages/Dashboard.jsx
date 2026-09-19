@@ -4,7 +4,7 @@ import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
-  const { user, logout, uploadKB, getKB, triageTicket } = useAuth();
+  const { user, logout, uploadKB, getKB, getStats, triageTicket } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [kbFile, setKbFile] = useState(null);
   const [kbDocs, setKbDocs] = useState([]);
   const [triageResults, setTriageResults] = useState({});
+  const [stats, setStats] = useState(null);
 
   const load = async (p = 1) => {
     const params = new URLSearchParams({ page: p, limit: 10 });
@@ -25,6 +26,15 @@ export default function Dashboard() {
     setPage(data.page);
     setTotalPages(data.totalPages);
   };
+
+  const loadStats = async () => {
+    if (user?.role === 'admin') {
+      const { data } = await getStats();
+      setStats(data);
+    }
+  };
+
+  useEffect(() => { load(1); loadStats(); }, [status]);
 
   useEffect(() => { load(1); }, [status]);
 
@@ -119,6 +129,21 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {user?.role === 'admin' && stats && (
+        <div className="grid" style={{ marginTop: 16 }}>
+          <div className="card">
+            <h3>📊 Admin Stats</h3>
+            <div className="row">
+              <div>Total: <b>{stats.totalTickets}</b></div>
+              <div>Open: <b>{stats.openTickets}</b></div>
+              <div>Resolved: <b>{stats.resolvedTickets}</b></div>
+              <div>Urgent: <b>{stats.urgentTickets}</b></div>
+              <div>AI Resolved: <b>{stats.aiResolvedPercent}%</b></div>
+              <div>Avg Resolution: <b>{stats.avgResolutionTimeMin} min</b></div>
+            </div>
+          </div>
+        </div>
+      )}
       {['admin', 'agent'].includes(user?.role) && (
         <div className="grid" style={{ marginTop: 16 }}>
           <div className="card">

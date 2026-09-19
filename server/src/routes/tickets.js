@@ -10,7 +10,7 @@ router.use(protect);
 
 function canAccessTicket(user, ticket) {
   if (user.role === 'admin') return true;
-  if (user.role === 'agent') return true; // agents see queue; restrict assign below
+  if (user.role === 'agent') return true;
   return ticket.customerId.toString() === user._id.toString();
 }
 
@@ -37,6 +37,45 @@ router.get('/', asyncHandler(async (req, res) => {
     .lean();
   res.json({ data: tickets, page, limit, total, totalPages: Math.ceil(total / limit) });
 }));
+
+// GET /api/tickets/stats (admin only)
+router.get('/stats', authorize('admin'), asyncHandler(async (req, res) => {
+  const stats = await Ticket.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalTickets: { $sum: 1 },
+        openTickets: { $sum: { $cond: [{ $eq: ['$status', 'open'] }, 1, 0] } },
+        resolvedTickets: { $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] } },
+        urgentTickets: { $sum: { $cond: [{ $eq: ['$priority', 'Urgent'] }, 1, 0] } },
+        avgResolutionTime: {
+          $avg: {
+            $cond: [
+              { $in: ['$status', ['resolved', 'closed']] },
+              { $subtract: ['$updatedAt', '$createdAt'] },
+              null
+            ]
+          }
+        },
+        aiResolved: { $sum: { $cond: [{ $eq: ['$aiResolved', true] }, 1, 0] } }
+      }
+    }
+  ]);
+  const s = stats[0] || {};
+  const avgMinutes = s.avgResolutionTime ? Math.round(s.avgResolutionTime / (1000 * 60) * 10) / 10 : 0;
+  const aiResolvedPercent = s.totalTickets > 0 ? Math.round((s.aiResolved / s.totalTickets) * 100) : 0;
+  res.json({
+    totalTickets: s.totalTickets || 0,
+    openTickets: s.openTickets || 0,
+    resolvedTickets: s.resolvedTickets || 0,
+    urgentTickets: s.urgentTickets || 0,
+    aiResolved: s.aiResolved || 0,
+    aiResolvedPercent,
+    avgResolutionTimeMin: avgMinutes
+  });
+}));
+
+// POST /api/tickets ... remaining routes same
 
 // POST /api/tickets
 router.post('/', ticketRules, validate, asyncHandler(async (req, res) => {

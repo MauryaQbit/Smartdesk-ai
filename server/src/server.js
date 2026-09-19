@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
+const cron = require('node-cron');
 
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/error');
@@ -36,10 +37,25 @@ app.use('/api/kb', kbRoutes);
 app.use('/api/ai', aiRoutes);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-connectDB(process.env.MONGO_URI).then(() => {
-  server.listen(PORT, () => console.log(`Server running on :${PORT}`));
-}).catch((e) => {
-  console.error('DB failed', e.message);
-  process.exit(1);
+// SLA escalation: every 1 hour, mark tickets as Urgent if past deadline and still open
+cron.schedule('*/1 * * * *', async () => {
+  try {
+    const result = await Ticket.updateMany(
+      { status: { $in: ['open', 'assigned'] }, slaDeadline: { $lte: new Date() } },
+      { $set: { priority: 'Urgent' } }
+    );
+    if (result.modifiedCount > 0) console.log(`SLA cron: ${result.modifiedCount} tickets escalated to Urgent`);
+  } catch (e) { console.error('SLA cron error:', e.message); }
 });
+
+const PORT = process.env.PORT || 5000;
+if (process.env.NODE_ENV !== 'test') {
+  connectDB(process.env.MONGO_URI).then(() => {
+    server.listen(PORT, () => console.log(`Server running on :${PORT}`));
+  }).catch((e) => {
+    console.error('DB failed', e.message);
+    process.exit(1);
+  });
+}
+
+module.exports = app;
