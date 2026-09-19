@@ -11,7 +11,8 @@ router.use(protect);
 function canAccessTicket(user, ticket) {
   if (user.role === 'admin') return true;
   if (user.role === 'agent') return true;
-  return ticket.customerId.toString() === user._id.toString();
+  const ownerId = ticket.customerId && ticket.customerId._id ? ticket.customerId._id.toString() : ticket.customerId.toString();
+  return ownerId === user._id.toString();
 }
 
 // GET /api/tickets?status=open&page=1&limit=10&q=login

@@ -31,9 +31,17 @@ function cosineSimilarity(a, b) {
 }
 
 async function generateText(prompt) {
-  const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const model = genAI.getGenerativeModel({ model: CHAT_MODEL });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (e) {
+      const is503 = e.message && e.message.includes('503');
+      if (is503 && attempt === 0) { await new Promise(r => setTimeout(r, 1500)); continue; }
+      throw e;
+    }
+  }
 }
 
 async function getEmbedding(text) {

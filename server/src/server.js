@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 
 const connectDB = require('./config/db');
+const Ticket = require('./models/Ticket');
 const { errorHandler } = require('./middleware/error');
 const authRoutes = require('./routes/auth');
 const ticketRoutes = require('./routes/tickets');
