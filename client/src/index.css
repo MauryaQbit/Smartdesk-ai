@@ -3,4 +3,8 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
-body { @apply bg-zinc-50 text-zinc-900 antialiased; font-family: ui-sans-system, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+html { scroll-behavior: smooth; }
+body { @apply bg-[#fcfcfd] text-zinc-900 antialiased; font-family: Inter, ui-sans-system, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+
+/* subtle grid background */
+.bg-grid { background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0); background-size: 24px 24px; }
