@@ -33,6 +33,8 @@ Return JSON with fields:
   ticket.sentimentAI = parsed.sentiment || 'neutral';
   ticket.category = parsed.category || 'general';
   ticket.summaryAI = parsed.summary || '';
+  // mark as AI-processed for stats (triage counts as AI assist)
+  ticket.aiResolved = false;
   await ticket.save();
 
   res.json({ ticketId: ticket._id, priority: ticket.priority, sentiment: ticket.sentimentAI, category: ticket.category, summary: ticket.summaryAI });
@@ -49,7 +51,8 @@ router.post('/chat', asyncHandler(async (req, res) => {
   const io = req.app.get('io');
 
   // 1) Retrieve relevant chunks from knowledge base
-  const chunks = await vectorSearch(query, 3);
+  let chunks = [];
+  try { chunks = await vectorSearch(query, 3); } catch (e) { console.error('vectorSearch failed', e.message); }
 
   if (!chunks.length) {
     const msg = await Message.create({ ticketId, senderId: null, senderType: 'ai', text: 'Escalating to human agent — no relevant knowledge found.' });
@@ -67,9 +70,12 @@ ${context}
 
 Question: ${query}`;
 
-  const answer = await generateText(prompt);
+  let answer;
+  try { answer = await generateText(prompt); } catch (e) { return res.status(503).json({ message: 'AI temporarily unavailable, try again' }); }
 
-  // 3) Store AI response as message
+  // 3) Store AI response as message and mark AI-resolved if not escalating
+  const isEscalated = answer.includes('Escalating to human');
+  if (!isEscalated) { ticket.aiResolved = true; await ticket.save(); }
   const msg = await Message.create({ ticketId, senderId: null, senderType: 'ai', text: answer });
   if (io) io.to(ticketId.toString()).emit('new-message', msg);
 

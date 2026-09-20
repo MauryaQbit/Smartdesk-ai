@@ -3,6 +3,7 @@ const multer = require('multer');
 const { asyncHandler } = require('../middleware/error');
 const { protect, authorize } = require('../middleware/auth');
 const { processAndStoreKB } = require('../services/aiService');
+const KnowledgeDoc = require('../models/KnowledgeDoc');
 
 const router = Router();
 router.use(protect, authorize('admin', 'agent'));
