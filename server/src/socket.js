@@ -33,6 +33,10 @@ function initSocket(io) {
       }
     });
 
+    socket.on('typing', ({ ticketId }) => {
+      socket.to(ticketId.toString()).emit('typing', { user: socket.user.name });
+    });
+
     socket.on('send-message', async ({ ticketId, text }) => {
       try {
         if (!text || text.length > 2000) return;

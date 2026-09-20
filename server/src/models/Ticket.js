@@ -12,6 +12,9 @@ const ticketSchema = new mongoose.Schema(
       index: true
     },
     priority: { type: String, enum: ['Low', 'Medium', 'High', 'Urgent'], default: 'Medium' },
+    sentimentAI: { type: String, enum: ['positive', 'neutral', 'negative'], default: 'neutral' },
+    summaryAI: { type: String, maxlength: 500 },
+    aiResolved: { type: Boolean, default: false, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     assignedAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     slaDeadline: { type: Date, default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) }
