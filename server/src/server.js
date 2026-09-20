@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
@@ -25,11 +26,13 @@ const io = new Server(server, {
 app.set('io', io);
 initSocket(io);
 
+app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
+app.use('/api/ai', rateLimit({ windowMs: 60 * 1000, max: 20, message: { message: 'AI rate limit - try again in a minute' } }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'smartdesk-ai', time: new Date() }));
 app.use('/api/auth', authRoutes);
