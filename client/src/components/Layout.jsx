@@ -1,7 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Headset, Sparkles, LogOut } from 'lucide-react';
+import { Headset, Sparkles, LogOut, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button, Badge } from './ui';
+import NotificationBell from './NotificationBell';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -27,6 +28,8 @@ export default function Layout({ children }) {
               </>
             ) : (
               <>
+                <NotificationBell />
+                {user.role==='admin' && <Link to="/users" className="hidden sm:inline-flex items-center gap-1 text-sm px-3 py-2 hover:bg-zinc-100 rounded-xl"><Users size={14}/> Users</Link>}
                 <span className="hidden md:inline text-sm text-zinc-600">{user.name} <span className="text-zinc-400">· {user.role}</span></span>
                 <Badge tone={user.role==='admin'?'violet':user.role==='agent'?'green':'zinc'}>{user.role}</Badge>
                 <Button variant="secondary" size="sm" onClick={onLogout}><LogOut size={14} className="mr-1.5" /> Logout</Button>

@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import TicketDetail from './pages/TicketDetail';
+import Users from './pages/Users';
 
 function Guard({ children }) {
   const { user, loading } = useAuth();
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
           <Route path="/" element={<Guard><Dashboard /></Guard>} />
           <Route path="/tickets/:id" element={<Guard><TicketDetail /></Guard>} />
+          <Route path="/users" element={<Guard><Users /></Guard>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

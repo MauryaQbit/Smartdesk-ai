@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Search, Sparkles, Upload, Ticket as TicketIcon, BarChart3, Clock, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
+import { Search, Sparkles, Upload, Ticket as TicketIcon, BarChart3, Clock, ShieldCheck, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -114,6 +114,30 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label>{chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
               </div>
             </div>
+            {stats.series && stats.series.length>0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2"><TrendingUp size={14}/> Tickets last 7 days</h4>
+                <div className="h-[200px] rounded-xl border p-2 bg-zinc-50/50">
+                  <ResponsiveContainer width="100%" height="100%"><LineChart data={stats.series}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}} allowDecimals={false}/><Tooltip/><Legend/><Line type="monotone" dataKey="count" stroke="#2563eb" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer>
+                </div>
+              </div>
+            )}
+            {stats.byCategory && stats.byCategory.length>0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-medium mb-2">By category</h4>
+                <div className="flex flex-wrap gap-2">
+                  {stats.byCategory.map(c=> <Badge key={c.category} tone="zinc">{c.category}: {c.count}</Badge>)}
+                </div>
+              </div>
+            )}
+            {stats.leaderboard && stats.leaderboard.length>0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2"><Users size={14}/> Top agents (by assigned)</h4>
+                <div className="rounded-xl border divide-y">
+                  {stats.leaderboard.map((a,i)=>(<div key={a._id} className="flex justify-between p-3 text-sm"><span>#{i+1} {a.name} <span className="text-zinc-500">{a.email}</span></span><Badge tone="blue">{a.count}</Badge></div>))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

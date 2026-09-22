@@ -16,6 +16,8 @@ const authRoutes = require('./routes/auth');
 const ticketRoutes = require('./routes/tickets');
 const kbRoutes = require('./routes/kb');
 const aiRoutes = require('./routes/ai');
+const notificationRoutes = require('./routes/notifications');
+const userRoutes = require('./routes/users');
 const initSocket = require('./socket');
 
 const app = express();
@@ -39,6 +41,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/kb', kbRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/users', userRoutes);
 app.use(errorHandler);
 
 // SLA escalation: every 1 hour, mark tickets as Urgent if past deadline and still open

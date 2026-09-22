@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { Paperclip, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, Button, Input, Badge, Toast } from '../components/ui';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
@@ -22,7 +23,10 @@ export default function TicketDetail() {
   const endRef = useRef(null);
   const socketRef = useRef(null);
 
+  const [file, setFile] = useState(null);
+  const [history, setHistory] = useState([]);
   const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''), 2500); };
+  const loadHistory = async () => { try { const { data } = await api.get(`/tickets/${id}/history`); setHistory(data.data); } catch {} };
 
   const load = async () => {
     const { data } = await api.get(`/tickets/${id}`);
@@ -32,7 +36,7 @@ export default function TicketDetail() {
   };
 
   useEffect(() => {
-    load();
+    load(); loadHistory();
     const socket = io(SOCKET_URL, { withCredentials: true });
     socketRef.current = socket;
     socket.on('connect', () => socket.emit('join-ticket', id));
@@ -72,8 +76,13 @@ export default function TicketDetail() {
     try { await api.post('/ai/triage', { ticketId: id }); const { data } = await api.get(`/tickets/${id}`); setTriageInfo(data.ticket.priority?{priority:data.ticket.priority,category:data.ticket.category,summary:data.ticket.summaryAI}:null); setTicket(data.ticket); showToast('Triaged'); } catch { showToast('Triage failed'); }
   };
 
-  const assign = async () => { const { data } = await api.patch(`/tickets/${id}/assign`); setTicket(data); showToast('Assigned to you'); };
-  const setStatus = async (status) => { const { data } = await api.patch(`/tickets/${id}/status`, { status }); setTicket(data); showToast(status); };
+  const assign = async () => { const { data } = await api.patch(`/tickets/${id}/assign`); setTicket(data); showToast('Assigned to you'); loadHistory(); };
+  const setStatus = async (status) => { const { data } = await api.patch(`/tickets/${id}/status`, { status }); setTicket(data); showToast(status); loadHistory(); };
+  const uploadAttachment = async (e) => {
+    e.preventDefault(); if (!file) return showToast('Choose file');
+    const fd = new FormData(); fd.append('file', file);
+    try { await api.post(`/tickets/${id}/attachments`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); showToast('Attachment added'); setFile(null); load(); } catch { showToast('Upload failed'); }
+  };
 
   if (!ticket) return <div className="py-10 text-center text-sm text-zinc-500">Loading ticket…</div>;
   const isStaff = ['agent','admin'].includes(user?.role);
@@ -156,15 +165,31 @@ export default function TicketDetail() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><h3 className="font-semibold">Timeline</h3></CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="flex gap-2"><span className="text-zinc-400">{new Date(ticket.createdAt).toLocaleString()}</span><span>Ticket created</span></div>
-            {messages.map((m)=><div key={m._id} className="flex gap-2"><span className="text-zinc-400">{new Date(m.createdAt).toLocaleTimeString()}</span><span className="truncate"><b>{m.senderType}:</b> {m.text}</span></div>)}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><h3 className="font-semibold flex items-center gap-2"><Paperclip size={14}/> Attachments {ticket.attachments?.length?`(${ticket.attachments.length})`:''}</h3></CardHeader>
+          <CardContent>
+            <form onSubmit={uploadAttachment} className="flex gap-2 mb-3">
+              <Input type="file" onChange={(e)=>setFile(e.target.files[0])} />
+              <Button size="sm" variant="secondary">Upload</Button>
+            </form>
+            <div className="space-y-2">
+              {(ticket.attachments||[]).map((a,i)=>(<div key={i} className="flex justify-between text-sm border rounded-xl px-3 py-2"><span className="truncate">{a.name}</span><span className="text-zinc-500">{(a.size/1024).toFixed(1)}KB</span></div>))}
+              {(!ticket.attachments||ticket.attachments.length===0) && <div className="text-sm text-zinc-500">No attachments yet</div>}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><h3 className="font-semibold flex items-center gap-2"><History size={14}/> Audit History</h3></CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm max-h-[220px] overflow-auto">
+              <div className="flex gap-2"><span className="text-zinc-400">{new Date(ticket.createdAt).toLocaleString()}</span><span>Ticket created</span></div>
+              {history.map(h=><div key={h._id} className="flex gap-2"><span className="text-zinc-400">{new Date(h.createdAt).toLocaleTimeString()}</span><span><b>{h.actorName}:</b> {h.action}</span></div>)}
+              {messages.map((m)=><div key={m._id} className="flex gap-2 opacity-60"><span className="text-zinc-400">{new Date(m.createdAt).toLocaleTimeString()}</span><span className="truncate"><b>{m.senderType}:</b> {m.text.slice(0,40)}</span></div>)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

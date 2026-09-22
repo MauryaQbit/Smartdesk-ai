@@ -17,6 +17,7 @@ const ticketSchema = new mongoose.Schema(
     aiResolved: { type: Boolean, default: false, index: true },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     assignedAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    attachments: [{ url: String, name: String, size: Number, mime: String }],
     slaDeadline: { type: Date, default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) }
   },
   { timestamps: true }

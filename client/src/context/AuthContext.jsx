@@ -39,6 +39,14 @@ export function AuthProvider({ children }) {
     const { data } = await api.get('/tickets/stats');
     return data;
   };
+  const getNotifications = async () => {
+    const { data } = await api.get('/notifications');
+    return data;
+  };
+  const getUsers = async () => {
+    const { data } = await api.get('/users');
+    return data;
+  };
 
   const triageTicket = async (ticketId) => {
     const { data } = await api.post('/ai/triage', { ticketId });
@@ -60,7 +68,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, register, logout, uploadKB, getKB, getStats, triageTicket, chatAI, draftReply }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, register, logout, uploadKB, getKB, getStats, getNotifications, getUsers, triageTicket, chatAI, draftReply }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
