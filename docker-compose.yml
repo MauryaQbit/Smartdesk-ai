@@ -1,0 +1,19 @@
+services:
+  mongo:
+    image: mongo:7
+    ports: ['27017:27017']
+    volumes: [mongo-data:/data/db]
+    healthcheck: { test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"], interval: 10s, timeout: 5s, retries: 5 }
+  app:
+    build: { context: .., dockerfile: server/Dockerfile, target: base }
+    ports: ['5000:5000']
+    environment:
+      MONGO_URI: mongodb://mongo:27017/smartdesk-ai
+      JWT_SECRET: change_me_32chars_min
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NODE_ENV: production
+      CLIENT_URL: http://localhost:5173
+    depends_on: { mongo: { condition: service_healthy } }
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://localhost:5000/api/health"], interval: 15s, timeout: 5s, retries: 5 }
+volumes:
+  mongo-data:

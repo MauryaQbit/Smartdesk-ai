@@ -1,0 +1,9 @@
+{
+  "name": "SmartDesk AI",
+  "short_name": "SmartDesk",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#18181b",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

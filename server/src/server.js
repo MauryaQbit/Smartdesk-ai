@@ -6,9 +6,15 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
+const hpp = require('hpp');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
 
+const validateEnv = require('./config/env');
+const logger = require('./config/logger');
+validateEnv();
 const connectDB = require('./config/db');
 const Ticket = require('./models/Ticket');
 const { errorHandler } = require('./middleware/error');
@@ -18,6 +24,7 @@ const kbRoutes = require('./routes/kb');
 const aiRoutes = require('./routes/ai');
 const notificationRoutes = require('./routes/notifications');
 const userRoutes = require('./routes/users');
+const mountSwagger = require('./config/swagger');
 const initSocket = require('./socket');
 
 const app = express();
@@ -28,15 +35,24 @@ const io = new Server(server, {
 app.set('io', io);
 initSocket(io);
 
-app.use(helmet());
+app.use(helmet({ crossOriginEmbedderPolicy: false }));
+app.use(compression());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
-app.use(morgan('dev'));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300 }));
+app.use(mongoSanitize());
+app.use(hpp());
+app.use((req, _res, next) => { req.id = Math.random().toString(36).slice(2, 8); next(); });
+app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true }));
 app.use('/api/ai', rateLimit({ windowMs: 60 * 1000, max: 20, message: { message: 'AI rate limit - try again in a minute' } }));
 
-app.get('/api/health', (req, res) => res.json({ ok: true, service: 'smartdesk-ai', time: new Date() }));
+app.get('/api/health', (req, res) => res.json({ ok: true, service: 'smartdesk-ai', time: new Date(), uptime: process.uptime() }));
+app.get('/api/metrics', async (_req, res) => {
+  const total = await Ticket.countDocuments();
+  res.json({ service: 'smartdesk-ai', version: '1.0.0', uptime: process.uptime(), totalTickets: total, memory: process.memoryUsage() });
+});
+mountSwagger(app);
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/kb', kbRoutes);
@@ -59,11 +75,13 @@ cron.schedule('*/1 * * * *', async () => {
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== 'test') {
   connectDB(process.env.MONGO_URI).then(() => {
-    server.listen(PORT, () => console.log(`Server running on :${PORT}`));
+    server.listen(PORT, () => logger.info(`Server running on :${PORT}`));
   }).catch((e) => {
-    console.error('DB failed', e.message);
+    logger.error('DB failed: ' + e.message);
     process.exit(1);
   });
+  const shut = () => { logger.info('Shutting down'); server.close(()=>process.exit(0)); };
+  process.on('SIGTERM', shut); process.on('SIGINT', shut);
 }
 
 module.exports = app;
