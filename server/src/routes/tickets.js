@@ -1,6 +1,7 @@
 const express = require('express');
 const Ticket = require('../models/Ticket');
 const Message = require('../models/Message');
+const cache = require('../config/cache');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { ticketRules, messageRules, validate } = require('../middleware/validate');
@@ -28,6 +29,9 @@ router.get('/', asyncHandler(async (req, res) => {
       { description: { $regex: req.query.q, $options: 'i' } }
     ];
   }
+  const key = `tickets:${req.user._id}:${req.user.role}:${page}:${limit}:${req.query.status||''}:${req.query.q||''}`;
+  const cached = cache.get(key);
+  if (cached) return res.json({ ...cached, cached: true });
   const total = await Ticket.countDocuments(filter);
   const tickets = await Ticket.find(filter)
     .sort({ createdAt: -1 })
@@ -36,7 +40,9 @@ router.get('/', asyncHandler(async (req, res) => {
     .populate('customerId', 'name email')
     .populate('assignedAgentId', 'name email')
     .lean();
-  res.json({ data: tickets, page, limit, total, totalPages: Math.ceil(total / limit) });
+  const payload = { data: tickets, page, limit, total, totalPages: Math.ceil(total / limit) };
+  cache.set(key, payload);
+  res.json(payload);
 }));
 
 // GET /api/tickets/stats (admin only)
@@ -104,7 +110,29 @@ router.post('/', ticketRules, validate, asyncHandler(async (req, res) => {
   const ticket = await Ticket.create({
     title, description, category: category || 'general', customerId: req.user._id
   });
+  cache.clear();
+  // audit + notification handled via socket for new ticket (customer created)
   res.status(201).json(ticket);
+}));
+
+// POST /api/tickets/bulk-triage (admin/agent) - advanced bulk + efficient
+router.post('/bulk-triage', authorize('agent','admin'), asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length===0) return res.status(400).json({ message: 'ids required' });
+  const { generateText } = require('../services/aiService');
+  const results = [];
+  for (const id of ids.slice(0,20)) {
+    const t = await Ticket.findById(id);
+    if (!t) continue;
+    const prompt = `Classify and return JSON {"priority":"Low|Medium|High|Urgent","category":"bug|billing|feature|general","summary":"..."}\nTitle:${t.title}\nDesc:${t.description}`;
+    try {
+      const raw = await generateText(prompt);
+      const m = raw.match(/\{[\s\S]*\}/); const p = m?JSON.parse(m[0]):{};
+      t.priority = p.priority||'Medium'; t.category=p.category||'general'; t.summaryAI=p.summary||''; await t.save(); results.push({ id, priority: t.priority });
+    } catch { results.push({ id, error: 'triage failed' }); }
+  }
+  cache.clear();
+  res.json({ processed: results });
 }));
 
 // GET /api/tickets/:id + messages
@@ -129,6 +157,7 @@ router.patch('/:id/assign', authorize('agent', 'admin'), asyncHandler(async (req
   const Notification = require('../models/Notification');
   await TicketHistory.create({ ticketId: ticket._id, actorId: req.user._id, actorName: req.user.name, action: 'assigned', meta: { to: req.user.name } });
   await Notification.create({ userId: ticket.customerId, ticketId: ticket._id, type: 'assigned', title: `Ticket assigned to ${req.user.name}` });
+  cache.clear();
   const io = req.app.get('io'); if (io) io.to(ticket.customerId.toString()).emit('notification', { title: 'Ticket assigned' });
   res.json(ticket);
 }));
@@ -149,6 +178,7 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
   const prev = ticket.status;
   ticket.status = status;
   await ticket.save();
+  cache.clear();
   const TicketHistory = require('../models/TicketHistory');
   await TicketHistory.create({ ticketId: ticket._id, actorId: req.user._id, actorName: req.user.name, action: `status:${prev}->${status}` });
   res.json(ticket);

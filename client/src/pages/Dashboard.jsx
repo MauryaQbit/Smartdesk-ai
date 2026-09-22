@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { Search, Sparkles, Upload, Ticket as TicketIcon, BarChart3, Clock, ShieldCheck, AlertTriangle, TrendingUp, Users } from 'lucide-react';
@@ -25,14 +25,21 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const searchRef = useRef(null);
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+  useEffect(()=>{ const h=(e)=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); searchRef.current?.focus(); }}; window.addEventListener('keydown',h); return ()=>window.removeEventListener('keydown',h); },[]);
+
+  // debounce search 350ms + URL sync for efficiency
+  useEffect(()=>{ const id=setTimeout(()=>setDebouncedQ(q),350); return ()=>clearTimeout(id); },[q]);
+  useEffect(()=>{ const p=new URLSearchParams(window.location.search); if(status) p.set('status',status); else p.delete('status'); if(debouncedQ) p.set('q',debouncedQ); else p.delete('q'); window.history.replaceState(null,'',`${window.location.pathname}?${p.toString()}`); },[status,debouncedQ]);
 
   const load = async (p = 1) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: p, limit: 10 });
       if (status) params.set('status', status);
-      if (q) params.set('q', q);
+      if (debouncedQ) params.set('q', debouncedQ);
       const { data } = await api.get(`/tickets?${params}`);
       setTickets(data.data);
       setPage(data.page);
@@ -43,17 +50,30 @@ export default function Dashboard() {
   const loadStats = async () => { if (user?.role !== 'admin') return; try { const { data } = await getStats(); setStats(data); } catch {} };
   const loadKB = async () => { try { const d = await getKB(); setKbDocs(Array.isArray(d.data)?d.data:Array.isArray(d)?d:[]); } catch {} };
 
-  useEffect(() => { load(1); loadStats(); loadKB(); }, [status, user]);
+  useEffect(() => { load(1); loadStats(); loadKB(); }, [status, debouncedQ, user]);
 
+  const templates = {
+    bug: { title: 'Cannot login to dashboard', description: 'Login fails with 500 after password reset. Steps: 1. Go to /login 2. Enter valid creds 3. See 500', category: 'bug' },
+    billing: { title: 'Billing double charge', description: 'Charged twice for March transaction TXN_123. Please refund one.', category: 'billing' },
+    feature: { title: 'Feature: dark mode', description: 'Please add dark mode toggle in header. Expected: switch theme, persist in localStorage.', category: 'feature' },
+  };
   const create = async (e) => {
     e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) return showToast('Title and description required');
+    // optimistic: add temp ticket immediately
+    const temp = { _id: `temp-${Date.now()}`, title: form.title, status: 'open', priority: 'Medium', category: form.category, _optimistic: true };
+    setTickets(prev=>[temp, ...prev]);
     try {
       await api.post('/tickets', form);
       setForm({ title: '', description: '', category: 'general' });
       showToast('Ticket created');
       load(1); loadStats();
-    } catch (err) { showToast(err.response?.data?.message || 'Create failed'); }
+    } catch (err) { setTickets(prev=>prev.filter(t=>!t._optimistic)); showToast(err.response?.data?.message || 'Create failed'); }
+  };
+  const bulkTriage = async () => {
+    const ids = tickets.filter(t=>t.status==='open' && !t._optimistic).map(t=>t._id);
+    if (!ids.length) return showToast('No open tickets');
+    try { const { data } = await api.post('/tickets/bulk-triage', { ids }); showToast(`Bulk triaged ${data.processed.length}`); load(1); loadStats(); } catch { showToast('Bulk triage failed'); }
   };
   const handleKBUpload = async (e) => {
     e.preventDefault();
@@ -74,6 +94,15 @@ export default function Dashboard() {
 
   const priorityTone = (p) => p==='Urgent'?'red':p==='High'?'amber':p==='Medium'?'blue':'zinc';
   const statusTone = (s) => s==='open'?'amber':s==='assigned'?'blue':s==='resolved'?'green':'zinc';
+  function SLATimer({ deadline, status }) {
+    const [now,setNow]=useState(Date.now());
+    useEffect(()=>{ const id=setInterval(()=>setNow(Date.now()),60000); return ()=>clearInterval(id); },[]);
+    if(status==='closed'||status==='resolved') return null;
+    const diff = new Date(deadline) - now;
+    if(diff<=0) return <Badge tone="red">SLA overdue</Badge>;
+    const h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000);
+    return <Badge tone={h<2?'red':h<6?'amber':'zinc'}>{h}h {m}m SLA</Badge>;
+  }
 
   return (
     <div className="space-y-6">
@@ -145,8 +174,13 @@ export default function Dashboard() {
       <div className="grid md:grid-cols-5 gap-6">
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="md:col-span-2">
           <Card className="h-fit">
-            <CardHeader><h3 className="font-semibold flex items-center gap-2"><TicketIcon size={16}/> Create ticket</h3><p className="text-sm text-zinc-500">Get AI priority & category instantly</p></CardHeader>
+            <CardHeader><h3 className="font-semibold flex items-center gap-2"><TicketIcon size={16}/> Create ticket</h3><p className="text-sm text-zinc-500">Templates + optimistic, SLA 24h auto-Urgent</p></CardHeader>
             <CardContent>
+              <div className="flex gap-1.5 mb-3">
+                <Button size="sm" variant="secondary" onClick={()=>setForm(templates.bug)}>Bug</Button>
+                <Button size="sm" variant="secondary" onClick={()=>setForm(templates.billing)}>Billing</Button>
+                <Button size="sm" variant="secondary" onClick={()=>setForm(templates.feature)}>Feature</Button>
+              </div>
               <form onSubmit={create} className="space-y-3">
                 <Input placeholder="Title *" value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} />
                 <Textarea placeholder="Describe issue... *" value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} />
@@ -169,7 +203,7 @@ export default function Dashboard() {
               <Select value={status} onChange={(e)=>setStatus(e.target.value)}>
                 <option value="">All</option><option value="open">Open</option><option value="assigned">Assigned</option><option value="resolved">Resolved</option><option value="closed">Closed</option>
               </Select>
-              <div className="relative flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"/><Input className="pl-9" placeholder="Search..." value={q} onChange={(e)=>setQ(e.target.value)} /></div>
+              <div className="relative flex-1"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"/><Input ref={searchRef} className="pl-9" placeholder="Search... (⌘K)" value={q} onChange={(e)=>setQ(e.target.value)} /></div>
               <Button variant="secondary" onClick={()=>load(1)}>Search</Button>
             </div>
             {loading ? <div className="space-y-2"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div> : tickets.length===0 ? <div className="text-center py-10 text-sm text-zinc-500"><div className="mx-auto h-10 w-10 grid place-items-center rounded-xl bg-zinc-100 mb-2"><TicketIcon size={16}/></div>No tickets yet. Create one!</div> : (
@@ -182,7 +216,7 @@ export default function Dashboard() {
                         <Badge tone={statusTone(t.status)}>{t.status}</Badge>
                         <Badge tone={priorityTone(t.priority)}>{t.priority}</Badge>
                         <Badge tone="zinc">{t.category}</Badge>
-                        {t.slaDeadline && new Date(t.slaDeadline) < new Date() && t.status!=='closed' && <Badge tone="red">SLA overdue</Badge>}
+                        {t.slaDeadline && <SLATimer deadline={t.slaDeadline} status={t.status} />}
                       </div>
                       {triageResults[t._id] && <div className="text-xs text-blue-600 mt-1">AI: {triageResults[t._id].priority} • {triageResults[t._id].category} • {triageResults[t._id].summary}</div>}
                     </div>
@@ -196,7 +230,7 @@ export default function Dashboard() {
               <span className="text-sm text-zinc-600">{page}/{totalPages}</span>
               <Button variant="secondary" size="sm" disabled={page>=totalPages} onClick={()=>load(page+1)}>Next</Button>
             </div>
-            {user?.role==='admin' && <Button variant="secondary" className="w-full mt-3" onClick={()=>tickets.filter(t=>t.status==='open').forEach(t=>handleTriage(t._id))}><Sparkles size={14} className="mr-1.5"/> AI Triage all open</Button>}
+            {user?.role==='admin' && <div className="flex gap-2 mt-3"><Button variant="secondary" className="flex-1" onClick={()=>tickets.filter(t=>t.status==='open').forEach(t=>handleTriage(t._id))}><Sparkles size={14} className="mr-1.5"/> Triage one-by-one</Button><Button className="flex-1" onClick={bulkTriage}><Sparkles size={14} className="mr-1.5"/> Bulk triage (efficient)</Button></div>}
           </CardContent>
         </Card>
       </div>
