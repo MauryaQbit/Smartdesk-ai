@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+const Landing = lazy(()=>import('./pages/Landing'));
 const Login = lazy(()=>import('./pages/Login'));
 const Register = lazy(()=>import('./pages/Register'));
 const Dashboard = lazy(()=>import('./pages/Dashboard'));
@@ -26,9 +27,10 @@ export default function App() {
         <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-10 text-sm text-zinc-500">Loading…</div>}>
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
               <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
               <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
-              <Route path="/" element={<Guard><Dashboard /></Guard>} />
+              <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
               <Route path="/tickets/:id" element={<Guard><TicketDetail /></Guard>} />
               <Route path="/users" element={<Guard><Users /></Guard>} />
             </Routes>

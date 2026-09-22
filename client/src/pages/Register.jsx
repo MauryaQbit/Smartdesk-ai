@@ -12,7 +12,7 @@ export default function Register() {
   const [err, setErr] = useState('');
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    try { await register(form.name, form.email, form.password, form.role); nav('/'); } catch (e) { setErr(e.response?.data?.message || 'Register failed'); }
+    try { await register(form.name, form.email, form.password, form.role); nav('/dashboard'); } catch (e) { setErr(e.response?.data?.message || 'Register failed'); }
   };
   return (
     <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6 mt-8">

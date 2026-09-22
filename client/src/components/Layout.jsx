@@ -21,6 +21,7 @@ export default function Layout({ children }) {
             <Badge tone="violet" className="hidden sm:inline-flex ml-2"><Sparkles size={12} className="mr-1" /> MERN + Gemini</Badge>
           </Link>
           <div className="flex items-center gap-2">
+            <Link to={user?"/dashboard":"/"} className="text-sm px-3 py-2 hover:bg-zinc-100 rounded-xl hidden sm:inline-flex">{user?'Dashboard':'Home'}</Link>
             {!user ? (
               <>
                 <Link to="/login" className="text-sm px-3 py-2 hover:bg-zinc-100 rounded-xl">Login</Link>
@@ -28,6 +29,7 @@ export default function Layout({ children }) {
               </>
             ) : (
               <>
+                <Link to="/dashboard" className="text-sm px-3 py-2 hover:bg-zinc-100 rounded-xl hidden sm:inline-flex">Dashboard</Link>
                 <NotificationBell />
                 {user.role==='admin' && <Link to="/users" className="hidden sm:inline-flex items-center gap-1 text-sm px-3 py-2 hover:bg-zinc-100 rounded-xl"><Users size={14}/> Users</Link>}
                 <span className="hidden md:inline text-sm text-zinc-600">{user.name} <span className="text-zinc-400">· {user.role}</span></span>

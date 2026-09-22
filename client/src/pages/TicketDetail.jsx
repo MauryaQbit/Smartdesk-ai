@@ -90,7 +90,7 @@ export default function TicketDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/" className="text-sm text-zinc-600 hover:text-zinc-900">← Back to dashboard</Link>
+      <Link to="/dashboard" className="text-sm text-zinc-600 hover:text-zinc-900">← Back to dashboard</Link>
       <Toast message={toast} />
 
       <Card className={slaOver ? 'border-red-200' : ''}>

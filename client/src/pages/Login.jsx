@@ -13,7 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const submit = async (e) => {
     e.preventDefault(); setErr(''); setLoading(true);
-    try { await login(form.email, form.password); nav('/'); } catch (e) { setErr(e.response?.data?.message || 'Login failed'); }
+    try { await login(form.email, form.password); nav('/dashboard'); } catch (e) { setErr(e.response?.data?.message || 'Login failed'); }
     setLoading(false);
   };
   return (
