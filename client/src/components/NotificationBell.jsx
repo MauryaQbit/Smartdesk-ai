@@ -13,7 +13,7 @@ export default function NotificationBell() {
   const markAll = async () => { await api.post('/notifications/read-all'); load(); };
   return (
     <div className="relative">
-      <button onClick={()=>setOpen(!open)} className="relative h-9 w-9 grid place-items-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur text-white">
+      <button type="button" aria-label={unread ? `${unread} unread notifications` : 'Notifications'} aria-expanded={open} onClick={()=>setOpen(!open)} className="relative h-9 w-9 grid place-items-center rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur text-white">
         <Bell size={16} />
         {unread>0 && <span className="absolute -top-1 -right-1 h-5 min-w-5 grid place-items-center rounded-full bg-indigo-500 text-white text-xs px-1">{unread}</span>}
       </button>

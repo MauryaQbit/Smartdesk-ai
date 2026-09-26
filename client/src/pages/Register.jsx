@@ -10,9 +10,11 @@ export default function Register() {
   const nav = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'customer' });
   const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
   const submit = async (e) => {
-    e.preventDefault(); setErr('');
+    e.preventDefault(); setErr(''); setLoading(true);
     try { await register(form.name, form.email, form.password, form.role); nav('/dashboard'); } catch (e) { setErr(e.response?.data?.message || 'Register failed'); }
+    setLoading(false);
   };
   return (
     <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6 mt-8">
@@ -41,7 +43,7 @@ export default function Register() {
               <option value="agent">Agent</option>
             </Select>
             {err && <div className="text-sm text-red-600 bg-red-50 border rounded-xl px-3 py-2">{err}</div>}
-            <Button className="w-full">Create account</Button>
+            <Button className="w-full" disabled={loading}>{loading ? 'Creating account…' : 'Create account'}</Button>
           </form>
           <div className="text-sm text-center mt-4"><Link to="/login" className="underline">Back to login</Link></div>
         </CardContent>
