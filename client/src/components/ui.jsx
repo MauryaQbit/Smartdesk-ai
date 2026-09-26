@@ -1,3 +1,5 @@
+import { forwardRef } from 'react';
+
 export function Button({ variant="primary", size="md", className="", ...props }) {
   const base = "inline-flex items-center justify-center rounded-xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20";
   const variants = {
@@ -29,9 +31,9 @@ export function Badge({ tone="zinc", className="", ...props }) {
   };
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${tones[tone]} ${className}`} {...props} />;
 }
-export function Input(props) {
-  return <input className="w-full h-10 rounded-xl border border-white/10 bg-white/5 backdrop-blur px-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/30 placeholder:text-zinc-500" {...props} />;
-}
+export const Input = forwardRef(function Input({ className = '', ...props }, ref) {
+  return <input ref={ref} className={`w-full h-10 rounded-xl border border-white/10 bg-white/5 backdrop-blur px-3 text-sm text-white outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/30 placeholder:text-zinc-500 ${className}`} {...props} />;
+});
 export function Textarea(props) {
   return <textarea className="w-full min-h-[96px] rounded-xl border border-white/10 bg-white/5 backdrop-blur p-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500/30 placeholder:text-zinc-500" {...props} />;
 }
