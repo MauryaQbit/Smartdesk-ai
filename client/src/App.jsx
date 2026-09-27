@@ -8,6 +8,8 @@ const Login = lazy(()=>import('./pages/Login'));
 const Register = lazy(()=>import('./pages/Register'));
 const Dashboard = lazy(()=>import('./pages/Dashboard'));
 const AIAssistant = lazy(()=>import('./pages/AIAssistant'));
+const Tickets = lazy(()=>import('./pages/Tickets'));
+const KnowledgeBase = lazy(()=>import('./pages/KnowledgeBase'));
 const TicketDetail = lazy(()=>import('./pages/TicketDetail'));
 const Users = lazy(()=>import('./pages/Users'));
 
@@ -33,6 +35,8 @@ export default function App() {
               <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
               <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
               <Route path="/ai-assistant" element={<Guard><AIAssistant /></Guard>} />
+              <Route path="/tickets" element={<Guard><Tickets /></Guard>} />
+              <Route path="/knowledge-base" element={<Guard><KnowledgeBase /></Guard>} />
               <Route path="/tickets/:id" element={<Guard><TicketDetail /></Guard>} />
               <Route path="/users" element={<Guard><Users /></Guard>} />
             </Routes>
