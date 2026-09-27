@@ -19,11 +19,11 @@ export default function Login() {
   };
   return (
     <div className="mx-auto grid max-w-5xl gap-6 py-6 md:grid-cols-[1.05fr_0.95fr] md:py-12">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative hidden overflow-hidden rounded-3xl border border-emerald-400/20 bg-zinc-900 p-8 text-white shadow-2xl shadow-emerald-950/20 md:flex md:flex-col md:justify-between">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative hidden overflow-hidden rounded-2xl border border-emerald-200/20 bg-[#192522] p-8 text-white shadow-2xl shadow-emerald-950/20 md:flex md:flex-col md:justify-between">
         <div className="absolute right-[-15%] top-[-12%] h-56 w-56 rounded-full border border-emerald-400/10" />
         <div className="absolute right-[-8%] top-[-4%] h-40 w-40 rounded-full border border-emerald-400/10" />
         <div>
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-950/30"><Headset size={22} /></div>
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#b9f4d5] text-[#10201a] shadow-lg shadow-emerald-950/30"><Headset size={22} /></div>
           <p className="mt-8 text-xs font-medium uppercase tracking-[0.2em] text-emerald-300">SmartDesk AI</p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight">A calmer way to run support.</h1>
           <p className="mt-4 max-w-sm text-sm leading-6 text-zinc-300">Bring every request, answer, and handoff into one workspace your team can trust.</p>
@@ -50,8 +50,8 @@ export default function Login() {
               <div className="mb-2 flex items-center justify-between"><label htmlFor="login-password" className="block text-sm font-medium text-zinc-300">Password</label><span className="text-xs text-zinc-600">Keep it private</span></div>
               <div className="relative"><Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" /><Input id="login-password" className="h-11 pl-10 pr-11" placeholder="Enter your password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={form.password} onChange={(e)=>setForm({...form,password:e.target.value})} /><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-200">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
             </div>
-            {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</div>}
-            <Button className="h-11 w-full bg-emerald-400 text-zinc-950 hover:bg-emerald-300" disabled={loading}>{loading ? 'Signing in…' : <><span>Sign in</span><ArrowRight size={16} className="ml-2" /></>}</Button>
+            {err && <div className="rounded-xl border border-red-300/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{err}</div>}
+            <Button className="h-11 w-full" disabled={loading}>{loading ? 'Signing in…' : <><span>Sign in</span><ArrowRight size={16} className="ml-2" /></>}</Button>
           </form>
           <div className="mt-6 flex items-center justify-center gap-2 text-sm text-zinc-500">No account? <Link to="/register" className="font-medium text-emerald-300 hover:text-emerald-200">Create one</Link></div>
           <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-400/10 bg-emerald-400/5 p-3 text-xs leading-5 text-zinc-400">

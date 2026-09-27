@@ -19,9 +19,9 @@ export default function Register() {
   };
   return (
     <div className="mx-auto grid max-w-5xl gap-6 py-6 md:grid-cols-[1.05fr_0.95fr] md:py-12">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative hidden overflow-hidden rounded-3xl border border-emerald-400/20 bg-zinc-900 p-8 text-white shadow-2xl shadow-emerald-950/20 md:flex md:flex-col md:justify-between">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative hidden overflow-hidden rounded-2xl border border-emerald-200/20 bg-[#192522] p-8 text-white shadow-2xl shadow-emerald-950/20 md:flex md:flex-col md:justify-between">
         <div>
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-400 text-zinc-950"><Headset size={22} /></div>
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#b9f4d5] text-[#10201a]"><Headset size={22} /></div>
           <p className="mt-8 text-xs font-medium uppercase tracking-[0.2em] text-emerald-300">Start with SmartDesk</p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight">Give every request a clear next step.</h1>
           <p className="mt-4 max-w-sm text-sm leading-6 text-zinc-300">Create a workspace for ticket intake, AI-assisted answers, and reliable customer handoffs.</p>
@@ -47,8 +47,8 @@ export default function Register() {
               <option value="customer">Customer</option>
               <option value="agent">Agent</option>
             </Select><p className="mt-2 text-xs text-zinc-600">Admin access is managed by the first workspace account.</p></div>
-            {err && <div className="text-sm text-red-600 bg-red-50 border rounded-xl px-3 py-2">{err}</div>}
-            <Button className="h-11 w-full bg-emerald-400 text-zinc-950 hover:bg-emerald-300" disabled={loading}>{loading ? 'Creating account…' : <><span>Create account</span><ArrowRight size={16} className="ml-2" /></>}</Button>
+            {err && <div className="rounded-xl border border-red-300/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">{err}</div>}
+            <Button className="h-11 w-full" disabled={loading}>{loading ? 'Creating account…' : <><span>Create account</span><ArrowRight size={16} className="ml-2" /></>}</Button>
           </form>
           <div className="mt-6 text-center text-sm text-zinc-500">Already have an account? <Link to="/login" className="font-medium text-emerald-300 hover:text-emerald-200">Sign in</Link></div>
         </CardContent>

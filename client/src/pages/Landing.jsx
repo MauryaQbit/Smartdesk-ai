@@ -24,12 +24,12 @@ export default function Landing() {
     return (
         <main className="relative overflow-hidden">
             <section className="relative grid gap-12 py-14 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-24">
-                <div className="relative z-10 max-w-2xl">
-                    <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
+                        <div className="relative z-10 max-w-2xl">
+                            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-medium text-emerald-200">
                         <span className="h-2 w-2 rounded-full bg-emerald-400" />
                         Support operations, made clear
                     </div>
-                    <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
+                    <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight text-white md:text-6xl">
                         Help customers get unstuck, faster.
                     </h1>
                     <p className="mt-6 max-w-xl text-base leading-7 text-zinc-400 md:text-lg">
@@ -37,7 +37,7 @@ export default function Landing() {
                     </p>
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                         <Link to="/register">
-                            <Button size="lg" className="w-full bg-emerald-400 text-zinc-950 hover:bg-emerald-300 sm:w-auto">
+                            <Button size="lg" className="w-full sm:w-auto">
                                 Create your workspace <ArrowRight size={16} className="ml-2" />
                             </Button>
                         </Link>
@@ -52,8 +52,8 @@ export default function Landing() {
                     </div>
                 </div>
 
-                <Card className="relative overflow-hidden border-emerald-400/20 bg-zinc-900/80 shadow-2xl shadow-emerald-950/30">
-                    <div className="absolute inset-x-0 top-0 h-1 bg-emerald-400" />
+                <Card className="relative overflow-hidden border-emerald-200/20 bg-[#192522]/90 shadow-2xl shadow-emerald-950/30">
+                    <div className="absolute inset-x-0 top-0 h-1 bg-[#b9f4d5]" />
                     <CardContent className="p-6 md:p-8">
                         <div className="flex items-start justify-between gap-4">
                             <div>
