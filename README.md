@@ -415,6 +415,7 @@ npm run lint
 - Set `CLIENT_URL` to the deployed frontend URL.
 - Set `VITE_API_URL` and `VITE_SOCKET_URL` in the client environment.
 - Configure `GEMINI_API_KEY`, `JWT_SECRET`, and `MONGO_URI` only in the server environment.
+- Set `NODE_ENV=production` and serve the API over HTTPS; production auth cookies use `SameSite=None` and therefore require the `Secure` flag.
 - Ensure the server host can reach Ollama, or replace the embedding provider with a hosted embedding service.
 
 ### Docker Compose
