@@ -12,6 +12,7 @@ The project demonstrates how a support operation can reduce repetitive Tier-1 wo
 - [How the workflow works](#how-the-workflow-works)
 - [User roles](#user-roles)
 - [Main features](#main-features)
+- [Screenshots](#screenshots)
 - [Technology stack](#technology-stack)
 - [Architecture](#architecture)
 - [AI and RAG workflow](#ai-and-rag-workflow)
@@ -112,6 +113,16 @@ Each ticket has a Socket.io room. Users join the room when viewing a ticket, and
 ### Admin analytics
 
 Admins can view total, open, resolved, urgent, AI-resolved, average-resolution, category, and agent workload information. The dashboard uses Recharts for bar, pie, and time-series visualizations.
+
+## Screenshots
+
+### Landing page
+
+![SmartDesk AI landing page](docs/screenshots/landing.png)
+
+### Admin dashboard
+
+![SmartDesk AI admin dashboard](docs/screenshots/dashboard.png)
 
 ## Technology stack
 
