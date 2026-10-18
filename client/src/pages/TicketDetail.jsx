@@ -3,17 +3,18 @@ import { Link, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Bot, CheckCircle2, CircleAlert, Copy, History, Paperclip, Send, Sparkles, UserRound } from 'lucide-react';
+import { ArrowLeft, Bot, CheckCircle2, CircleAlert, Copy, History, Paperclip, Send, Sparkles, ThumbsDown, ThumbsUp, UserRound } from 'lucide-react';
 import { Card, CardContent, CardHeader, Button, Input, Badge, Toast } from '../components/ui';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function TicketDetail() {
   const { id } = useParams();
-  const { user, chatAI, draftReply } = useAuth();
+  const { user, chatAI, aiFeedback, escalateAI, draftReply } = useAuth();
   const [ticket, setTicket] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const [internalNote, setInternalNote] = useState(false);
   const [chatQuery, setChatQuery] = useState('');
   const [chatResult, setChatResult] = useState(null);
   const [draft, setDraft] = useState('');
@@ -30,6 +31,9 @@ export default function TicketDetail() {
 
   const [file, setFile] = useState(null);
   const [history, setHistory] = useState([]);
+  const [satisfaction, setSatisfaction] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState('');
   const showToast = (m) => { setToast(m); setTimeout(()=>setToast(''), 2500); };
   const loadHistory = async () => { try { const { data } = await api.get(`/tickets/${id}/history`); setHistory(data.data); } catch {} };
 
@@ -38,6 +42,7 @@ export default function TicketDetail() {
     setTicket(data.ticket);
     setMessages(data.messages);
     setTriageInfo(data.ticket.priority ? { priority: data.ticket.priority, category: data.ticket.category, summary: data.ticket.summaryAI } : null);
+    try { const feedback = await api.get(`/tickets/${id}/satisfaction`); setSatisfaction(feedback.data); } catch {}
   };
 
   useEffect(() => {
@@ -62,6 +67,21 @@ export default function TicketDetail() {
     setText('');
     setTimeout(async ()=>{ try{ const {data}=await api.get(`/tickets/${id}`); setMessages(data.messages); }catch{} }, 800);
   };
+  const addInternalNote = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    try {
+      const { data } = await api.post(`/tickets/${id}/notes`, { text: text.trim() });
+      setMessages((current) => [...current, data]);
+      setText('');
+      showToast('Internal note added');
+    } catch (error) { showToast(error.response?.data?.message || 'Could not add internal note'); }
+  };
+  const cannedReplies = [
+    'Thanks for the details. We are investigating this now and will update you shortly.',
+    'Could you share the exact steps and error message you see? That will help us reproduce the issue.',
+    'We have resolved this request. Please let us know if you need anything else.'
+  ];
 
   const handleChatAI = async (e) => {
     e.preventDefault();
@@ -70,7 +90,7 @@ export default function TicketDetail() {
     try {
       const result = await chatAI(id, chatQuery.trim());
       setChatResult(result);
-      showToast(result.chunkCount?`RAG used ${result.chunkCount} chunks`:'Escalated — no KB');
+      showToast(result.chunkCount?`RAG used ${result.chunkCount} sources`:'Escalated — no KB');
       setChatQuery('');
       const { data } = await api.get(`/tickets/${id}`); setMessages(data.messages);
     } catch (err) { showToast(err.response?.data?.message||'SmartDesk could not process that request'); }
@@ -97,6 +117,11 @@ export default function TicketDetail() {
     e.preventDefault(); if (!file) return showToast('Choose file');
     const fd = new FormData(); fd.append('file', file);
     try { await api.post(`/tickets/${id}/attachments`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); showToast('Attachment added'); setFile(null); load(); } catch { showToast('Upload failed'); }
+  };
+  const submitSatisfaction = async (e) => {
+    e.preventDefault();
+    if (!rating) return showToast('Choose a rating first');
+    try { const { data } = await api.post(`/tickets/${id}/satisfaction`, { rating, comment: feedbackComment }); setSatisfaction(data); showToast('Thanks for your feedback'); } catch (error) { showToast(error.response?.data?.message || 'Could not save feedback'); }
   };
 
   if (!ticket) return <div className="mx-auto max-w-3xl py-16 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-2xl bg-emerald-400/10" /><p className="mt-4 text-sm text-zinc-500">Loading ticket details…</p></div>;
@@ -153,10 +178,27 @@ export default function TicketDetail() {
           <CardHeader><div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-white">Conversation</h3><p className="mt-1 text-sm text-zinc-500">Customer and agent messages update in real time.</p></div><span className={`inline-flex items-center gap-1.5 text-xs ${socketState === 'connected' ? 'text-emerald-300' : 'text-amber-300'}`}><span className={`h-1.5 w-1.5 rounded-full ${socketState === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'}`} />{socketState === 'connected' ? 'Connected' : socketState === 'connecting' ? 'Connecting…' : 'Reconnecting…'}</span></div></CardHeader>
           <CardContent>
             <div className="h-[420px] space-y-3 overflow-auto rounded-2xl border border-white/10 bg-zinc-950/50 p-4">
-              {chatResult && <div className={`max-w-[88%] rounded-2xl border px-4 py-3 text-sm leading-6 ${aiEscalated ? 'border-amber-400/20 bg-amber-400/5 text-zinc-300' : 'border-indigo-400/20 bg-indigo-400/5 text-zinc-300'}`}><div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-indigo-300"><Bot size={14} /> SmartDesk AI</div>{aiEscalated ? <><p>I couldn’t find enough information in the knowledge base to answer this confidently.</p><Link to="/dashboard#create-ticket" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-300 hover:text-amber-200">Create a support ticket <ArrowLeft size={12} className="rotate-180" /></Link></> : <><p>{chatResult.answer}</p><div className="mt-2 text-xs text-zinc-500">Grounded in {chatResult.chunkCount} knowledge chunks</div></>}</div>}
+              {chatResult && (
+                <div className={`max-w-[88%] rounded-2xl border px-4 py-3 text-sm leading-6 ${aiEscalated ? 'border-amber-400/20 bg-amber-400/5 text-zinc-300' : 'border-indigo-400/20 bg-indigo-400/5 text-zinc-300'}`}>
+                  <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-indigo-300"><Bot size={14} /> SmartDesk AI</div>
+                  <p>{chatResult.answer}</p>
+                  {aiEscalated ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button type="button" onClick={() => escalateAI(id).then(() => showToast('A human agent has been notified')).catch(() => showToast('Could not notify a human agent'))} className="text-xs font-medium text-amber-300 hover:text-amber-200">Ask a human agent</button>
+                      <Link to="/dashboard#create-ticket" className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-zinc-200">Create a support ticket <ArrowLeft size={12} className="rotate-180" /></Link>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-2 text-xs text-zinc-500">Confidence {Math.round((chatResult.confidence || 0) * 100)}% · grounded in {chatResult.chunkCount} sources</div>
+                      {chatResult.sources?.length > 0 && <div className="mt-2 border-t border-white/10 pt-2 text-xs text-zinc-500"><p className="mb-1 uppercase tracking-[0.12em] text-zinc-600">Sources</p>{chatResult.sources.map((source) => <p key={`${source.title}-${source.source}`} className="truncate">{source.title || source.source || 'Knowledge base document'}</p>)}</div>}
+                      <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-2"><span className="text-xs text-zinc-600">Helpful?</span><button type="button" aria-label="Mark AI answer helpful" onClick={() => aiFeedback(chatResult.messageId, true).then(() => showToast('Feedback saved')).catch(() => showToast('Could not save feedback'))} className="text-zinc-600 hover:text-emerald-300"><ThumbsUp size={14} /></button><button type="button" aria-label="Mark AI answer not helpful" onClick={() => aiFeedback(chatResult.messageId, false).then(() => showToast('Feedback saved')).catch(() => showToast('Could not save feedback'))} className="text-zinc-600 hover:text-amber-300"><ThumbsDown size={14} /></button></div>
+                    </>
+                  )}
+                </div>
+              )}
               {messages.map((m)=>(
-                <div key={m._id} className={`max-w-[82%] rounded-2xl border px-4 py-3 text-sm leading-6 ${m.senderType==='agent'?'ml-auto border-emerald-400/20 bg-emerald-400/10 text-zinc-200':m.senderType==='ai'?'border-indigo-400/20 bg-indigo-400/5 text-zinc-300':'border-white/10 bg-white/[0.04] text-zinc-300'}`}>
-                  <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">{m.senderType === 'ai' ? <Bot size={13} /> : m.senderType === 'agent' ? <Sparkles size={13} /> : <UserRound size={13} />}{m.senderType === 'user' ? 'Customer' : m.senderType === 'agent' ? 'Agent' : 'SmartDesk AI'}</div><div>{m.text}</div>
+                <div key={m._id} className={`max-w-[82%] rounded-2xl border px-4 py-3 text-sm leading-6 ${m.internal?'border-amber-400/20 bg-amber-400/5 text-amber-100':m.senderType==='agent'?'ml-auto border-emerald-400/20 bg-emerald-400/10 text-zinc-200':m.senderType==='ai'?'border-indigo-400/20 bg-indigo-400/5 text-zinc-300':'border-white/10 bg-white/[0.04] text-zinc-300'}`}>
+                  <div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">{m.internal ? <History size={13} /> : m.senderType === 'ai' ? <Bot size={13} /> : m.senderType === 'agent' ? <Sparkles size={13} /> : <UserRound size={13} />}{m.internal ? 'Internal note' : m.senderType === 'user' ? 'Customer' : m.senderType === 'agent' ? 'Agent' : 'SmartDesk AI'}</div><div>{m.text}</div>
                   <div className="mt-1 text-xs text-zinc-500">{new Date(m.createdAt).toLocaleTimeString()}</div>
                 </div>
               ))}
@@ -164,9 +206,10 @@ export default function TicketDetail() {
               {typing && <div className="text-xs text-zinc-500">Someone is typing…</div>}
               <div ref={endRef} />
             </div>
-            <form onSubmit={send} className="mt-3 flex gap-2">
-              <Input aria-label="Message" placeholder="Write a message…" value={text} onChange={(e)=>setText(e.target.value)} />
-              <Button aria-label="Send message" className="bg-emerald-400 text-zinc-950 hover:bg-emerald-300"><Send size={15} /></Button>
+            {isStaff && <div className="mt-3 flex flex-wrap gap-2">{cannedReplies.map((reply) => <button type="button" key={reply} onClick={() => setText(reply)} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-zinc-500 transition hover:border-indigo-300/30 hover:text-indigo-200">Use canned reply</button>)}</div>}
+            <form onSubmit={isStaff && internalNote ? addInternalNote : send} className="mt-3 flex flex-col gap-2">
+              {isStaff && <div className="flex items-center gap-2 text-xs"><button type="button" onClick={() => setInternalNote(false)} className={!internalNote ? 'font-medium text-emerald-300' : 'text-zinc-500'}>Reply to customer</button><span className="text-zinc-700">·</span><button type="button" onClick={() => setInternalNote(true)} className={internalNote ? 'font-medium text-amber-300' : 'text-zinc-500'}>Internal note</button></div>}
+              <div className="flex gap-2"><Input aria-label={internalNote ? 'Internal note' : 'Message'} placeholder={internalNote ? 'Add a private note for your team…' : 'Write a message…'} value={text} onChange={(e)=>setText(e.target.value)} /><Button aria-label={internalNote ? 'Add internal note' : 'Send message'} className={internalNote ? 'bg-amber-300 text-zinc-950 hover:bg-amber-200' : 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300'}><Send size={15} /></Button></div>
             </form>
           </CardContent>
         </Card>
@@ -184,6 +227,7 @@ export default function TicketDetail() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {!isStaff && ['resolved', 'closed'].includes(ticket.status) && <Card className="border-emerald-400/20 bg-emerald-400/[0.04] md:col-span-2"><CardHeader><h3 className="font-semibold text-white">How did we do?</h3><p className="mt-1 text-sm text-zinc-500">Your feedback helps us improve support.</p></CardHeader><CardContent>{satisfaction ? <p className="text-sm text-emerald-200">Thanks for rating this ticket {satisfaction.rating}/5.</p> : <form onSubmit={submitSatisfaction} className="space-y-3"><div className="flex gap-2" role="radiogroup" aria-label="Satisfaction rating">{[1, 2, 3, 4, 5].map((value) => <button type="button" key={value} aria-label={`${value} out of 5`} onClick={() => setRating(value)} className={`text-2xl ${value <= rating ? 'text-amber-300' : 'text-zinc-700'}`}>★</button>)}</div><Input aria-label="Feedback comment" placeholder="Optional comment" maxLength={1000} value={feedbackComment} onChange={(e) => setFeedbackComment(e.target.value)} /><Button size="sm" disabled={!rating}>Submit feedback</Button></form>}</CardContent></Card>}
         <Card>
           <CardHeader><h3 className="flex items-center gap-2 font-semibold text-white"><Paperclip size={14} className="text-zinc-400" /> Attachments {ticket.attachments?.length?`(${ticket.attachments.length})`:''}</h3></CardHeader>
           <CardContent>

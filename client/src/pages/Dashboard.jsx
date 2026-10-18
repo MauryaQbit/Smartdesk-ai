@@ -5,7 +5,9 @@ import { ArrowRight, BookOpen, BrainCircuit, CheckCircle2, FileText, Search, Spa
 import { motion } from 'framer-motion';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardContent, CardHeader, Button, Input, Textarea, Select, Badge, Skeleton, Toast, Stat } from '../components/ui';
+import { Card, CardContent, CardHeader, Button, Input, Select, Badge, Skeleton, Toast, Stat } from '../components/ui';
+import TicketForm from '../components/TicketForm';
+import Onboarding from '../components/Onboarding';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -18,7 +20,6 @@ export default function Dashboard() {
   const [totalPages, setTotalPages] = useState(1);
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
-  const [form, setForm] = useState({ title: '', description: '', category: 'general' });
   const [kbTitle, setKbTitle] = useState('');
   const [kbFile, setKbFile] = useState(null);
   const [kbDocs, setKbDocs] = useState([]);
@@ -63,20 +64,13 @@ export default function Dashboard() {
 
   useEffect(() => { load(1); loadStats(); loadKB(); }, [status, debouncedQ, user]);
 
-  const templates = {
-    bug: { title: 'Cannot login to dashboard', description: 'Login fails with 500 after password reset. Steps: 1. Go to /login 2. Enter valid creds 3. See 500', category: 'bug' },
-    billing: { title: 'Billing double charge', description: 'Charged twice for March transaction TXN_123. Please refund one.', category: 'billing' },
-    feature: { title: 'Feature: dark mode', description: 'Please add dark mode toggle in header. Expected: switch theme, persist in localStorage.', category: 'feature' },
-  };
-  const create = async (e) => {
-    e.preventDefault();
-    if (!form.title.trim() || !form.description.trim()) return showToast('Title and description required');
+  const create = async (form, reset) => {
     // optimistic: add temp ticket immediately
     const temp = { _id: `temp-${Date.now()}`, title: form.title, status: 'open', priority: 'Medium', category: form.category, _optimistic: true };
     setTickets(prev=>[temp, ...prev]);
     try {
       await api.post('/tickets', form);
-      setForm({ title: '', description: '', category: 'general' });
+      reset();
       showToast('Ticket created');
       load(1); loadStats();
     } catch (err) { setTickets(prev=>prev.filter(t=>!t._optimistic)); showToast(err.response?.data?.message || 'Create failed'); }
@@ -139,6 +133,8 @@ export default function Dashboard() {
         </div>
         </div>
       </motion.div>
+
+      <Onboarding role={user?.role} userId={user?._id || user?.id} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(user?.role === 'admin' && stats ? [
@@ -215,17 +211,7 @@ export default function Dashboard() {
           <Card className="h-fit border-emerald-400/10">
             <CardHeader><h3 className="font-semibold flex items-center gap-2"><TicketIcon size={16} className="text-emerald-400"/> Create a ticket</h3><p className="mt-1 text-sm text-zinc-500">Tell us what happened and we’ll route it to the right person.</p></CardHeader>
             <CardContent>
-              <div className="mb-4 flex flex-wrap gap-1.5">
-                <Button size="sm" variant="secondary" onClick={()=>setForm(templates.bug)}>Bug</Button>
-                <Button size="sm" variant="secondary" onClick={()=>setForm(templates.billing)}>Billing</Button>
-                <Button size="sm" variant="secondary" onClick={()=>setForm(templates.feature)}>Feature</Button>
-              </div>
-              <form onSubmit={create} className="space-y-3">
-                <Input aria-label="Ticket title" placeholder="What do you need help with? *" value={form.title} onChange={(e)=>setForm({...form,title:e.target.value})} />
-                <Textarea aria-label="Ticket description" placeholder="Describe the issue, what you expected, and what happened... *" value={form.description} onChange={(e)=>setForm({...form,description:e.target.value})} />
-                <Input aria-label="Ticket category" placeholder="Category (bug, billing, feature)" value={form.category} onChange={(e)=>setForm({...form,category:e.target.value})} />
-                <Button className="w-full bg-emerald-400 text-zinc-950 hover:bg-emerald-300">Submit ticket</Button>
-              </form>
+              <TicketForm onSubmit={create} />
             </CardContent>
           </Card>
         </motion.div>
