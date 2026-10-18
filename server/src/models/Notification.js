@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   ticketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' },
-  type: { type: String, enum: ['ticket_created','assigned','status','message','ai_triage'], default: 'message' },
+  type: { type: String, enum: ['ticket_created','assigned','status','message','ai_triage','ai_escalation'], default: 'message' },
   title: { type: String, required: true },
   read: { type: Boolean, default: false, index: true },
 }, { timestamps: true });

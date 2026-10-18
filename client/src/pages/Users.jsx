@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, ShieldCheck, Users as UsersIcon } from 'lucide-react';
+import { Activity, AlertCircle, ShieldCheck, Users as UsersIcon } from 'lucide-react';
 import api from '../lib/api';
 import { Card, CardHeader, CardContent, Badge, Toast, Select, Skeleton } from '../components/ui';
 
@@ -8,9 +8,10 @@ export default function Users() {
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [audit, setAudit] = useState([]);
   const load = async () => {
     setLoading(true); setError('');
-    try { const { data } = await api.get('/users'); setUsers(data.data); } catch { setError('We could not load the workspace members.'); }
+    try { const [{ data }, auditResponse] = await Promise.all([api.get('/users'), api.get('/tickets/audit')]); setUsers(data.data); setAudit(auditResponse.data.data); } catch { setError('We could not load the workspace administration data.'); }
     setLoading(false);
   };
   useEffect(()=>{ load(); }, []);
@@ -39,6 +40,7 @@ export default function Users() {
           </div>}
         </CardContent>
       </Card>
+      <Card><CardHeader><h2 className="flex items-center gap-2 font-semibold text-white"><Activity size={17} className="text-emerald-400" /> Recent audit activity</h2><p className="mt-1 text-sm text-zinc-500">A record of administrative and support actions.</p></CardHeader><CardContent><div className="space-y-2">{audit.length === 0 ? <p className="text-sm text-zinc-500">No audit activity yet.</p> : audit.slice(0, 20).map((entry) => <div key={entry._id} className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-sm text-zinc-300">{entry.action}</span><span className="text-xs text-zinc-500">{entry.actorId?.name || 'System'} · {new Date(entry.createdAt).toLocaleString()}</span></div>)}</div></CardContent></Card>
     </div>
   );
 }

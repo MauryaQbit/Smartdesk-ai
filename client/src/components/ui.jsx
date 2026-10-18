@@ -45,7 +45,7 @@ export function Skeleton({ className="" }) {
 }
 export function Toast({ message }) {
   if (!message) return null;
-  return <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-emerald-200/20 bg-[#d4f9e4] px-4 py-3 text-sm font-medium text-[#10201a] shadow-2xl shadow-black/40">{message}</div>;
+  return <div role="status" aria-live="polite" className="fixed bottom-5 left-4 right-4 z-50 rounded-xl border border-emerald-200/20 bg-[#d4f9e4] px-4 py-3 text-center text-sm font-medium text-[#10201a] shadow-2xl shadow-black/40 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">{message}</div>;
 }
 export function Stat({ label, value, sub }) {
   return <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur"><div className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">{label}</div><div className="mt-1 text-2xl font-semibold text-white">{value}</div>{sub && <div className="mt-1 text-xs text-zinc-500">{sub}</div>}</div>;

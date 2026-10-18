@@ -57,6 +57,14 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/ai/chat', { ticketId, query });
     return data;
   };
+  const aiFeedback = async (messageId, helpful) => {
+    const { data } = await api.post('/ai/feedback', { messageId, helpful });
+    return data;
+  };
+  const escalateAI = async (ticketId) => {
+    const { data } = await api.post('/ai/escalate', { ticketId });
+    return data;
+  };
 
   const draftReply = async (ticketId) => {
     const { data } = await api.post('/ai/draft-reply', { ticketId });
@@ -68,7 +76,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, register, logout, uploadKB, getKB, getStats, getNotifications, getUsers, triageTicket, chatAI, draftReply }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, register, logout, uploadKB, getKB, getStats, getNotifications, getUsers, triageTicket, chatAI, aiFeedback, escalateAI, draftReply }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
