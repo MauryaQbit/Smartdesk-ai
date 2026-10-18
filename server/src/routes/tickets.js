@@ -5,6 +5,9 @@ const cache = require('../config/cache');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { ticketRules, messageRules, validate } = require('../middleware/validate');
+const Satisfaction = require('../models/Satisfaction');
+const AuditLog = require('../models/AuditLog');
+const { recordAudit } = require('../utils/audit');
 
 const router = express.Router();
 router.use(protect);
@@ -23,13 +26,19 @@ router.get('/', asyncHandler(async (req, res) => {
   const filter = {};
   if (req.query.status) filter.status = req.query.status;
   if (req.user.role === 'customer') filter.customerId = req.user._id;
+  if (req.user.role !== 'customer' && req.query.assignedTo === 'me') filter.assignedAgentId = req.user._id;
+  if (req.user.role !== 'customer' && req.query.assignedTo === 'unassigned') filter.assignedAgentId = null;
+  if (req.query.overdue === 'true') {
+    filter.slaDeadline = { $lte: new Date() };
+    filter.status = { $in: ['open', 'assigned'] };
+  }
   if (req.query.q) {
     filter.$or = [
       { title: { $regex: req.query.q, $options: 'i' } },
       { description: { $regex: req.query.q, $options: 'i' } }
     ];
   }
-  const key = `tickets:${req.user._id}:${req.user.role}:${page}:${limit}:${req.query.status||''}:${req.query.q||''}`;
+  const key = `tickets:${req.user._id}:${req.user.role}:${page}:${limit}:${req.query.status||''}:${req.query.q||''}:${req.query.assignedTo||''}:${req.query.overdue||''}`;
   const cached = cache.get(key);
   if (cached) return res.json({ ...cached, cached: true });
   const total = await Ticket.countDocuments(filter);
@@ -110,9 +119,57 @@ router.post('/', ticketRules, validate, asyncHandler(async (req, res) => {
   const ticket = await Ticket.create({
     title, description, category: category || 'general', customerId: req.user._id
   });
+  await recordAudit({ actor: req.user, action: 'ticket.created', resourceType: 'Ticket', resourceId: ticket._id, metadata: { category: ticket.category } });
   cache.clear();
   // audit + notification handled via socket for new ticket (customer created)
   res.status(201).json(ticket);
+}));
+
+router.get('/export.csv', authorize('agent', 'admin'), asyncHandler(async (req, res) => {
+  const tickets = await Ticket.find().sort({ createdAt: -1 }).populate('customerId', 'name email').populate('assignedAgentId', 'name').lean();
+  const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const rows = [
+    ['id', 'title', 'status', 'priority', 'category', 'customer', 'agent', 'createdAt', 'slaDeadline'],
+    ...tickets.map((ticket) => [
+      ticket._id, ticket.title, ticket.status, ticket.priority, ticket.category,
+      ticket.customerId?.name || ticket.customerId?.email || '',
+      ticket.assignedAgentId?.name || '',
+      ticket.createdAt?.toISOString(), ticket.slaDeadline?.toISOString()
+    ])
+  ];
+  await recordAudit({ actor: req.user, action: 'ticket.exported', resourceType: 'Ticket', metadata: { count: tickets.length } });
+  res.type('text/csv').set('Content-Disposition', 'attachment; filename="smartdesk-tickets.csv"').send(rows.map((row) => row.map(escape).join(',')).join('\n'));
+}));
+
+router.get('/audit', authorize('admin'), asyncHandler(async (req, res) => {
+  const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(100).populate('actorId', 'name email').lean();
+  res.json({ data: logs });
+}));
+
+router.post('/:id/satisfaction', asyncHandler(async (req, res) => {
+  const { rating, comment = '' } = req.body;
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length > 1000) {
+    return res.status(400).json({ message: 'rating must be an integer from 1 to 5 and comment must be under 1000 characters' });
+  }
+  const ticket = await Ticket.findById(req.params.id);
+  if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+  if (ticket.customerId.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Forbidden' });
+  if (!['resolved', 'closed'].includes(ticket.status)) return res.status(400).json({ message: 'Feedback is available after resolution' });
+  const feedback = await Satisfaction.findOneAndUpdate(
+    { ticketId: ticket._id },
+    { ticketId: ticket._id, customerId: req.user._id, rating, comment },
+    { new: true, upsert: true, runValidators: true }
+  );
+  await recordAudit({ actor: req.user, action: 'ticket.satisfaction_submitted', resourceType: 'Ticket', resourceId: ticket._id, metadata: { rating } });
+  res.status(201).json(feedback);
+}));
+
+router.get('/:id/satisfaction', asyncHandler(async (req, res) => {
+  const ticket = await Ticket.findById(req.params.id);
+  if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+  if (!canAccessTicket(req.user, ticket)) return res.status(403).json({ message: 'Forbidden' });
+  const feedback = await Satisfaction.findOne({ ticketId: ticket._id }).lean();
+  res.json(feedback || null);
 }));
 
 // POST /api/tickets/bulk-triage (admin/agent) - advanced bulk + efficient
@@ -135,6 +192,29 @@ router.post('/bulk-triage', authorize('agent','admin'), asyncHandler(async (req,
   res.json({ processed: results });
 }));
 
+// PATCH /api/tickets/bulk-status - update up to 50 tickets for staff
+router.patch('/bulk-status', authorize('agent', 'admin'), asyncHandler(async (req, res) => {
+  const { ids, status } = req.body;
+  if (!Array.isArray(ids) || !ids.length || !['open', 'assigned', 'resolved', 'closed'].includes(status)) {
+    return res.status(400).json({ message: 'ids and a valid status are required' });
+  }
+  const tickets = await Ticket.find({ _id: { $in: ids.slice(0, 50) } }).select('_id status');
+  const TicketHistory = require('../models/TicketHistory');
+  await Ticket.bulkWrite(tickets.map((ticket) => ({
+    updateOne: { filter: { _id: ticket._id }, update: { $set: { status } } }
+  })));
+  if (tickets.length) {
+    await TicketHistory.insertMany(tickets.map((ticket) => ({
+      ticketId: ticket._id,
+      actorId: req.user._id,
+      actorName: req.user.name,
+      action: `bulk_status:${ticket.status}->${status}`
+    })));
+  }
+  cache.clear();
+  res.json({ updated: tickets.length, status });
+}));
+
 // GET /api/tickets/:id + messages
 router.get('/:id', asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(req.params.id)
@@ -142,7 +222,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
     .populate('assignedAgentId', 'name email');
   if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
   if (!canAccessTicket(req.user, ticket)) return res.status(403).json({ message: 'Forbidden' });
-  const messages = await Message.find({ ticketId: ticket._id }).sort({ createdAt: 1 }).lean();
+  const messageFilter = { ticketId: ticket._id };
+  if (req.user.role === 'customer') messageFilter.internal = false;
+  const messages = await Message.find(messageFilter).sort({ createdAt: 1 }).lean();
   res.json({ ticket, messages });
 }));
 
@@ -156,6 +238,7 @@ router.patch('/:id/assign', authorize('agent', 'admin'), asyncHandler(async (req
   const TicketHistory = require('../models/TicketHistory');
   const Notification = require('../models/Notification');
   await TicketHistory.create({ ticketId: ticket._id, actorId: req.user._id, actorName: req.user.name, action: 'assigned', meta: { to: req.user.name } });
+  await recordAudit({ actor: req.user, action: 'ticket.assigned', resourceType: 'Ticket', resourceId: ticket._id, metadata: { agentId: req.user._id } });
   await Notification.create({ userId: ticket.customerId, ticketId: ticket._id, type: 'assigned', title: `Ticket assigned to ${req.user.name}` });
   cache.clear();
   const io = req.app.get('io'); if (io) io.to(ticket.customerId.toString()).emit('notification', { title: 'Ticket assigned' });
@@ -181,6 +264,7 @@ router.patch('/:id/status', asyncHandler(async (req, res) => {
   cache.clear();
   const TicketHistory = require('../models/TicketHistory');
   await TicketHistory.create({ ticketId: ticket._id, actorId: req.user._id, actorName: req.user.name, action: `status:${prev}->${status}` });
+  await recordAudit({ actor: req.user, action: 'ticket.status_changed', resourceType: 'Ticket', resourceId: ticket._id, metadata: { from: prev, to: status } });
   res.json(ticket);
 }));
 
@@ -191,13 +275,23 @@ router.post('/:id/messages', messageRules, validate, asyncHandler(async (req, re
   if (!canAccessTicket(req.user, ticket)) return res.status(403).json({ message: 'Forbidden' });
   const senderType = req.user.role === 'agent' || req.user.role === 'admin' ? 'agent' : 'user';
   const msg = await Message.create({
-    ticketId: ticket._id, senderId: req.user._id, senderType, text: req.body.text
+    ticketId: ticket._id, senderId: req.user._id, senderType, text: req.body.text, internal: false
   });
   const TicketHistory = require('../models/TicketHistory');
   await TicketHistory.create({ ticketId: ticket._id, actorId: req.user._id, actorName: req.user.name, action: 'message', meta: { text: msg.text.slice(0,60) } });
   // Emit live if socket server attached
   const io = req.app.get('io');
   if (io) io.to(ticket._id.toString()).emit('new-message', msg);
+  res.status(201).json(msg);
+}));
+
+// POST /api/tickets/:id/notes - staff-only internal note
+router.post('/:id/notes', authorize('agent', 'admin'), messageRules, validate, asyncHandler(async (req, res) => {
+  const ticket = await Ticket.findById(req.params.id);
+  if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+  const msg = await Message.create({ ticketId: ticket._id, senderId: req.user._id, senderType: 'agent', text: req.body.text, internal: true });
+  const TicketHistory = require('../models/TicketHistory');
+  await TicketHistory.create({ ticketId: ticket._id, actorId: req.user._id, actorName: req.user.name, action: 'internal_note', meta: { text: msg.text.slice(0, 60) } });
   res.status(201).json(msg);
 }));
 
