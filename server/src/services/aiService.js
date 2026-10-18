@@ -7,6 +7,7 @@ const CHAT_MODEL = 'gemini-2.5-flash';
 const CHUNK_SIZE = 500;
 const CHUNK_OVERLAP = 50;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const MIN_SIMILARITY = Number(process.env.AI_MIN_SIMILARITY || 0.35);
 
 function chunkText(text) {
   const chunks = [];
@@ -74,7 +75,15 @@ async function vectorSearch(query, limit = 3) {
     score: cosineSimilarity(queryEmbedding, d.embeddingVector)
   }));
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map((s) => s.doc.content);
+  return scored
+    .filter((item) => item.score >= MIN_SIMILARITY)
+    .slice(0, limit)
+    .map(({ doc, score }) => ({
+      title: doc.title,
+      content: doc.content,
+      source: doc.source,
+      score: Math.round(score * 1000) / 1000
+    }));
 }
 
 module.exports = { chunkText, getEmbedding, generateText, processAndStoreKB, vectorSearch };

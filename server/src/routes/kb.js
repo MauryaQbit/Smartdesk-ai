@@ -4,6 +4,7 @@ const { asyncHandler } = require('../middleware/error');
 const { protect, authorize } = require('../middleware/auth');
 const { processAndStoreKB } = require('../services/aiService');
 const KnowledgeDoc = require('../models/KnowledgeDoc');
+const { recordAudit } = require('../utils/audit');
 
 const router = Router();
 router.use(protect, authorize('admin', 'agent'));
@@ -17,6 +18,7 @@ router.post('/upload', upload.single('file'), asyncHandler(async (req, res) => {
   if (!content || content.length < 10) return res.status(400).json({ message: 'File content too small' });
 
   const result = await processAndStoreKB(req.body.title || req.file.originalname, content, req.file.originalname, req.user._id);
+  await recordAudit({ actor: req.user, action: 'knowledge.uploaded', resourceType: 'KnowledgeDoc', metadata: { title: result.title, source: req.file.originalname, chunkCount: result.chunkCount } });
   res.status(201).json({ ...result, source: req.file.originalname });
 }));
 
@@ -32,6 +34,14 @@ router.get('/', asyncHandler(async (req, res) => {
     .lean();
   const total = await KnowledgeDoc.countDocuments();
   res.json({ data: docs, page, limit, total, totalPages: Math.ceil(total / limit) });
+}));
+
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const doc = await KnowledgeDoc.findById(req.params.id);
+  if (!doc) return res.status(404).json({ message: 'Document not found' });
+  await KnowledgeDoc.deleteMany({ title: doc.title, source: doc.source });
+  await recordAudit({ actor: req.user, action: 'knowledge.deleted', resourceType: 'KnowledgeDoc', resourceId: doc._id, metadata: { title: doc.title, source: doc.source } });
+  res.json({ ok: true });
 }));
 
 module.exports = router;
