@@ -117,6 +117,20 @@ describe('Health', () => {
     const res = await request(app).get('/api/ready');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ ok: true, checks: { database: 'ready' } });
+    expect(res.body.time).toBeDefined();
+    expect(res.body.uptime).toEqual(expect.any(Number));
+  });
+  test('GET /api/ready returns 503 when database is unavailable', async () => {
+    const originalReadyState = mongoose.connection.readyState;
+    mongoose.connection.readyState = 0;
+
+    try {
+      const res = await request(app).get('/api/ready');
+      expect(res.status).toBe(503);
+      expect(res.body).toMatchObject({ ok: false, checks: { database: 'unavailable' } });
+    } finally {
+      mongoose.connection.readyState = originalReadyState;
+    }
   });
   test('GET /api/docs.json', async () => {
     const res = await request(app).get('/api/docs.json');
