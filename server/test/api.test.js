@@ -113,6 +113,11 @@ describe('Health', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200); expect(res.body).toHaveProperty('ok');
   });
+  test('GET /api/ready reports database readiness', async () => {
+    const res = await request(app).get('/api/ready');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, checks: { database: 'ready' } });
+  });
   test('GET /api/docs.json', async () => {
     const res = await request(app).get('/api/docs.json');
     expect(res.status).toBe(200); expect(res.body).toHaveProperty('openapi');

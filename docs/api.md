@@ -30,5 +30,6 @@ Base: `/api` — auth via httpOnly `token` cookie. Roles: customer, agent, admin
 | POST | /ai/escalate | yes | ticketId | Notify support staff about a human handoff |
 | POST | /ai/draft-reply | yes | ticketId | {summary,draftReply} |
 | GET | /health | no | — | {ok} |
+| GET | /ready | no | — | {ok,checks.database} or 503 |
 
 Socket: `join-ticket`, `send-message`, `new-message`

@@ -11,6 +11,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
+const mongoose = require('mongoose');
 
 const validateEnv = require('./config/env');
 const logger = require('./config/logger');
@@ -48,6 +49,14 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true })
 app.use('/api/ai', rateLimit({ windowMs: 60 * 1000, max: 20, message: { message: 'AI rate limit - try again in a minute' } }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'smartdesk-ai', time: new Date(), uptime: process.uptime() }));
+app.get('/api/ready', (_req, res) => {
+  const databaseReady = mongoose.connection.readyState === 1;
+  res.status(databaseReady ? 200 : 503).json({
+    ok: databaseReady,
+    service: 'smartdesk-ai',
+    checks: { database: databaseReady ? 'ready' : 'unavailable' }
+  });
+});
 app.get('/api/metrics', async (_req, res) => {
   const total = await Ticket.countDocuments();
   res.json({ service: 'smartdesk-ai', version: '1.0.0', uptime: process.uptime(), totalTickets: total, memory: process.memoryUsage() });
