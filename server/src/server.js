@@ -54,6 +54,8 @@ app.get('/api/ready', (_req, res) => {
   res.status(databaseReady ? 200 : 503).json({
     ok: databaseReady,
     service: 'smartdesk-ai',
+    time: new Date(),
+    uptime: process.uptime(),
     checks: { database: databaseReady ? 'ready' : 'unavailable' }
   });
 });
