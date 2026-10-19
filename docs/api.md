@@ -33,3 +33,5 @@ Base: `/api` — auth via httpOnly `token` cookie. Roles: customer, agent, admin
 | GET | /ready | no | — | {ok,service,time,uptime,checks.database}; returns 503 when MongoDB is unavailable |
 
 Socket: `join-ticket`, `send-message`, `new-message`
+
+The liveness endpoint reports whether the process is running. Use `/ready` for load balancer or container routing decisions because it verifies MongoDB connectivity before returning `200`.
